@@ -27,15 +27,23 @@ object GoogleSearchHelper {
         query: String,
         qualityParam: String = "",
         isSafeSearchDisabled: Boolean = com.example.data.ScrollSearchStateBus.isSafeSearchDisabled.value,
-        searchType: com.example.model.SearchType = com.example.data.ScrollSearchStateBus.selectedSearchType.value
+        searchType: com.example.model.SearchType = com.example.data.ScrollSearchStateBus.selectedSearchType.value,
+        isHighQualityFilter: Boolean = com.example.data.ScrollSearchStateBus.isHighQualityFilterEnabled.value
     ): String {
         val encoded = URLEncoder.encode(query, "UTF-8")
+        val effectiveQuality = if (qualityParam.isNotBlank()) {
+            qualityParam
+        } else if (isHighQualityFilter) {
+            "&tbs=isz:l"
+        } else {
+            ""
+        }
         return when (engine) {
             com.example.model.SearchEngine.GOOGLE -> {
                 val safeParam = if (isSafeSearchDisabled) "&safe=off" else "&safe=active"
                 when (searchType) {
                     com.example.model.SearchType.IMAGES ->
-                        "https://www.google.com/search?q=$encoded&udm=2&hl=pt-BR&gl=br$safeParam$qualityParam"
+                        "https://www.google.com/search?q=$encoded&udm=2&hl=pt-BR&gl=br$safeParam$effectiveQuality"
                     com.example.model.SearchType.VIDEOS ->
                         "https://www.google.com/search?q=$encoded&tbm=vid&hl=pt-BR&gl=br$safeParam"
                     com.example.model.SearchType.ALL_WEB ->
@@ -46,9 +54,10 @@ object GoogleSearchHelper {
             }
             com.example.model.SearchEngine.BING -> {
                 val safeParam = if (isSafeSearchDisabled) "&adlt=off" else "&adlt=strict"
+                val hqParam = if (isHighQualityFilter) "&qft=+filterui:imagesize-large" else ""
                 when (searchType) {
                     com.example.model.SearchType.IMAGES ->
-                        "https://www.bing.com/images/search?q=$encoded&form=HDRSC2$safeParam"
+                        "https://www.bing.com/images/search?q=$encoded&form=HDRSC2$safeParam$hqParam"
                     com.example.model.SearchType.VIDEOS ->
                         "https://www.bing.com/videos/search?q=$encoded$safeParam"
                     com.example.model.SearchType.ALL_WEB ->
@@ -59,9 +68,10 @@ object GoogleSearchHelper {
             }
             com.example.model.SearchEngine.DUCKDUCKGO -> {
                 val safeParam = if (isSafeSearchDisabled) "&kp=-2" else "&kp=1"
+                val hqParam = if (isHighQualityFilter) "&iaf=size:Large" else ""
                 when (searchType) {
                     com.example.model.SearchType.IMAGES ->
-                        "https://duckduckgo.com/?q=$encoded&iax=images&ia=images$safeParam"
+                        "https://duckduckgo.com/?q=$encoded&iax=images&ia=images$safeParam$hqParam"
                     com.example.model.SearchType.VIDEOS ->
                         "https://duckduckgo.com/?q=$encoded&iax=videos&ia=videos$safeParam"
                     com.example.model.SearchType.ALL_WEB ->
@@ -72,9 +82,10 @@ object GoogleSearchHelper {
             }
             com.example.model.SearchEngine.YANDEX -> {
                 val safeParam = if (isSafeSearchDisabled) "&family=0" else "&family=1"
+                val hqParam = if (isHighQualityFilter) "&isize=large" else ""
                 when (searchType) {
                     com.example.model.SearchType.IMAGES ->
-                        "https://yandex.com/images/search?text=$encoded$safeParam"
+                        "https://yandex.com/images/search?text=$encoded$safeParam$hqParam"
                     com.example.model.SearchType.VIDEOS ->
                         "https://yandex.com/video/search?text=$encoded$safeParam"
                     com.example.model.SearchType.ALL_WEB ->
@@ -85,9 +96,10 @@ object GoogleSearchHelper {
             }
             com.example.model.SearchEngine.YAHOO -> {
                 val safeParam = if (isSafeSearchDisabled) "&vm=p" else "&vm=r"
+                val hqParam = if (isHighQualityFilter) "&imgsz=large" else ""
                 when (searchType) {
                     com.example.model.SearchType.IMAGES ->
-                        "https://images.search.yahoo.com/search/images?p=$encoded$safeParam"
+                        "https://images.search.yahoo.com/search/images?p=$encoded$safeParam$hqParam"
                     com.example.model.SearchType.VIDEOS ->
                         "https://video.search.yahoo.com/search/video?p=$encoded$safeParam"
                     com.example.model.SearchType.ALL_WEB ->
@@ -416,13 +428,8 @@ object GoogleSearchHelper {
                             var parent = img.parentElement;
                             if (!parent) continue;
 
-                            var compPos = window.getComputedStyle(parent).position;
-                            if (compPos === 'static') {
+                            if (parent.style.position !== 'relative' && parent.style.position !== 'absolute') {
                                 parent.style.position = 'relative';
-                            }
-                            var compDisp = window.getComputedStyle(parent).display;
-                            if (compDisp === 'inline') {
-                                parent.style.display = 'inline-block';
                             }
 
                             var container = document.createElement('div');
@@ -513,9 +520,6 @@ object GoogleSearchHelper {
                             container.appendChild(fsBtn);
                             container.appendChild(dlBtn);
                             parent.appendChild(container);
-                            // NOTE: Do NOT add a click listener to currentImg!
-                            // This allows normal click behavior on search results (e.g. Google expands related images & filters).
-                            // The user opens fullscreen by tapping the fullscreen button (fsBtn).
                         }
                     }
 
@@ -523,12 +527,25 @@ object GoogleSearchHelper {
 
                     if (!window.__scrollsearchObserverInstalled) {
                         window.__scrollsearchObserverInstalled = true;
+                        var isQueued = false;
+                        var throttledAttach = function() {
+                            if (isQueued) return;
+                            isQueued = true;
+                            window.requestAnimationFrame(function() {
+                                attachButtons();
+                                isQueued = false;
+                            });
+                        };
+
                         var observer = new MutationObserver(function() {
-                            attachButtons();
+                            throttledAttach();
                         });
                         observer.observe(document.body, { childList: true, subtree: true });
+
+                        var scrollDebounce = null;
                         window.addEventListener('scroll', function() {
-                            attachButtons();
+                            if (scrollDebounce) clearTimeout(scrollDebounce);
+                            scrollDebounce = setTimeout(throttledAttach, 160);
                         }, { passive: true });
                     }
                 } catch(e) {}

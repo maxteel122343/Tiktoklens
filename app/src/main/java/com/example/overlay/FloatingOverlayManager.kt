@@ -276,8 +276,8 @@ class FloatingOverlayManager(private val context: Context) {
                     (screenHeight * 0.88f).toInt()
                 )
                 layoutParams.height = panelHeight
-                layoutParams.x = offsetX
-                layoutParams.y = offsetY.coerceAtLeast(0)
+                layoutParams.x = 0
+                layoutParams.y = 0
             }
         }
     }
@@ -305,11 +305,20 @@ class FloatingOverlayManager(private val context: Context) {
     private fun onMenuDragged(deltaX: Float, deltaY: Float) {
         if (!isAttached || composeView == null) return
         try {
-            val newY = (layoutParams.y - deltaY.toInt()).coerceIn(0, (screenHeight * 0.55f).toInt())
-            val newX = (layoutParams.x + deltaX.toInt()).coerceIn(-300, 300)
-            layoutParams.x = newX
-            layoutParams.y = newY
-            windowManager.updateViewLayout(composeView, layoutParams)
+            val currentVersion = ScrollSearchStateBus.activeVersion.value
+            if (currentVersion == OverlayUiVersion.V2 || currentVersion == OverlayUiVersion.F2) {
+                // Sidebar: move vertically
+                val newY = (layoutParams.y + deltaY.toInt()).coerceIn(-600, 600)
+                layoutParams.y = newY
+                windowManager.updateViewLayout(composeView, layoutParams)
+            } else {
+                // Bottom card: dragging vertically changes the card's height smoothly
+                val currentRatio = ScrollSearchStateBus.heightRatio.value
+                val deltaRatio = -deltaY / screenHeight.toFloat()
+                ScrollSearchStateBus.setHeightRatio(currentRatio + deltaRatio)
+                recalculateLayoutParams()
+                windowManager.updateViewLayout(composeView, layoutParams)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error dragging menu: ${e.message}")
         }

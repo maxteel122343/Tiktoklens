@@ -193,52 +193,19 @@ fun OverlayRootComposable(
                         )
                 ) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        // Top resize drag handle for V5, V6, V7
-                        if (activeVersion == OverlayUiVersion.V5 ||
-                            activeVersion == OverlayUiVersion.V6 ||
-                            activeVersion == OverlayUiVersion.V7
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .pointerInput(Unit) {
-                                        detectVerticalDragGestures { change, dragAmount ->
-                                            change.consume()
-                                            val deltaRatio = -dragAmount / 1200f
-                                            ScrollSearchStateBus.setHeightRatio(heightRatio + deltaRatio)
-                                        }
-                                    }
-                                    .testTag("top_border_resize_handle")
-                            ) {
-                                OverlayHeader(
-                                    username = username,
-                                    currentVersion = activeVersion,
-                                    currentEngine = currentEngine,
-                                    isSafeSearchDisabled = isSafeSearchDisabled,
-                                    onVersionSelected = { ScrollSearchStateBus.setVersion(it) },
-                                    onEngineSelected = { ScrollSearchStateBus.setSearchEngine(it) },
-                                    onToggleSafeSearch = { ScrollSearchStateBus.toggleSafeSearch() },
-                                    onMinimize = { ScrollSearchStateBus.setBubbleCollapsed(true) },
-                                    onClose = onCloseOverlay,
-                                    onRefresh = { ScrollSearchStateBus.notifyEffectiveQueryChanged() },
-                                    onMoveDrag = onMenuDrag
-                                )
-                            }
-                        } else {
-                            OverlayHeader(
-                                username = username,
-                                currentVersion = activeVersion,
-                                currentEngine = currentEngine,
-                                isSafeSearchDisabled = isSafeSearchDisabled,
-                                onVersionSelected = { ScrollSearchStateBus.setVersion(it) },
-                                onEngineSelected = { ScrollSearchStateBus.setSearchEngine(it) },
-                                onToggleSafeSearch = { ScrollSearchStateBus.toggleSafeSearch() },
-                                onMinimize = { ScrollSearchStateBus.setBubbleCollapsed(true) },
-                                onClose = onCloseOverlay,
-                                onRefresh = { ScrollSearchStateBus.notifyEffectiveQueryChanged() },
-                                onMoveDrag = onMenuDrag
-                            )
-                        }
+                        OverlayHeader(
+                            username = username,
+                            currentVersion = activeVersion,
+                            currentEngine = currentEngine,
+                            isSafeSearchDisabled = isSafeSearchDisabled,
+                            onVersionSelected = { ScrollSearchStateBus.setVersion(it) },
+                            onEngineSelected = { ScrollSearchStateBus.setSearchEngine(it) },
+                            onToggleSafeSearch = { ScrollSearchStateBus.toggleSafeSearch() },
+                            onMinimize = { ScrollSearchStateBus.setBubbleCollapsed(true) },
+                            onClose = onCloseOverlay,
+                            onRefresh = { ScrollSearchStateBus.notifyEffectiveQueryChanged() },
+                            onMoveDrag = onMenuDrag
+                        )
 
                         TagsRow(
                             tags = tags,

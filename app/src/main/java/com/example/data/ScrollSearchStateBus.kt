@@ -37,6 +37,17 @@ object ScrollSearchStateBus {
     private val _unreadNotificationCount = MutableStateFlow(3)
     val unreadNotificationCount: StateFlow<Int> = _unreadNotificationCount.asStateFlow()
 
+    // Filtro de Alta Qualidade (apenas imagens HD/grandes na busca)
+    private val _isHighQualityFilterEnabled = MutableStateFlow(true)
+    val isHighQualityFilterEnabled: StateFlow<Boolean> = _isHighQualityFilterEnabled.asStateFlow()
+
+    // Rede Social selecionada na Landing Page (TikTok, Instagram, Facebook, YouTube Shorts, Bluesky)
+    private val _selectedPlatform = MutableStateFlow(com.example.model.SocialPlatform.TIKTOK)
+    val selectedPlatform: StateFlow<com.example.model.SocialPlatform> = _selectedPlatform.asStateFlow()
+
+    private val _activeDetectedPlatform = MutableStateFlow<com.example.model.SocialPlatform?>(com.example.model.SocialPlatform.TIKTOK)
+    val activeDetectedPlatform: StateFlow<com.example.model.SocialPlatform?> = _activeDetectedPlatform.asStateFlow()
+
     private val _imageQuality = MutableStateFlow(ImageQuality.HIGH)
     val imageQuality: StateFlow<ImageQuality> = _imageQuality.asStateFlow()
 
@@ -184,6 +195,29 @@ object ScrollSearchStateBus {
 
     fun setSuperFullscreen(enabled: Boolean) {
         _isSuperFullscreenEnabled.value = enabled
+    }
+
+    fun toggleHighQualityFilter() {
+        _isHighQualityFilterEnabled.value = !_isHighQualityFilterEnabled.value
+        notifyEffectiveQueryChanged()
+    }
+
+    fun setHighQualityFilter(enabled: Boolean) {
+        if (_isHighQualityFilterEnabled.value != enabled) {
+            _isHighQualityFilterEnabled.value = enabled
+            notifyEffectiveQueryChanged()
+        }
+    }
+
+    fun selectSocialPlatform(platform: com.example.model.SocialPlatform) {
+        _selectedPlatform.value = platform
+        _activeDetectedPlatform.value = platform
+        val firstSample = platform.sampleCreators.firstOrNull() ?: "criador"
+        updateDetectedUsername(firstSample)
+    }
+
+    fun setActiveDetectedPlatform(platform: com.example.model.SocialPlatform?) {
+        _activeDetectedPlatform.value = platform
     }
 
     fun setVersion(version: OverlayUiVersion) {

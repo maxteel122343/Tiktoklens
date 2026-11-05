@@ -267,6 +267,29 @@ fun PureFloatingControlsPill(
 
                 Spacer(modifier = Modifier.width(3.dp))
 
+                // HD Filter Toggle
+                val isHighQualityFilter by ScrollSearchStateBus.isHighQualityFilterEnabled.collectAsState()
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(
+                            if (isHighQualityFilter) com.example.ui.theme.TikTokCyan.copy(alpha = 0.25f)
+                            else Color.White.copy(alpha = 0.15f)
+                        )
+                        .clickable { ScrollSearchStateBus.toggleHighQualityFilter() }
+                        .padding(horizontal = 5.dp, vertical = 3.dp)
+                        .testTag("f_hd_filter_toggle_button")
+                ) {
+                    Text(
+                        text = if (isHighQualityFilter) "HD: ON" else "HD: OFF",
+                        color = if (isHighQualityFilter) com.example.ui.theme.TikTokCyan else Color.LightGray,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(3.dp))
+
                 // Super Fullscreen Toggle
                 IconButton(
                     onClick = { ScrollSearchStateBus.toggleSuperFullscreen() },

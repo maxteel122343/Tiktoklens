@@ -80,4 +80,43 @@ class ExampleUnitTest {
     com.example.data.ScrollSearchStateBus.setSearchEngine(com.example.model.SearchEngine.GOOGLE)
     assertEquals(com.example.model.SearchEngine.GOOGLE, com.example.data.ScrollSearchStateBus.selectedSearchEngine.value)
   }
+
+  @Test
+  fun `test high quality filter in search urls`() {
+    val googleHqUrl = com.example.util.GoogleSearchHelper.buildSearchUrl(
+        engine = com.example.model.SearchEngine.GOOGLE,
+        query = "khaby",
+        isHighQualityFilter = true
+    )
+    assertTrue(googleHqUrl.contains("isz:l"))
+
+    val bingHqUrl = com.example.util.GoogleSearchHelper.buildSearchUrl(
+        engine = com.example.model.SearchEngine.BING,
+        query = "khaby",
+        isHighQualityFilter = true
+    )
+    assertTrue(bingHqUrl.contains("imagesize-large"))
+
+    val ddgHqUrl = com.example.util.GoogleSearchHelper.buildSearchUrl(
+        engine = com.example.model.SearchEngine.DUCKDUCKGO,
+        query = "khaby",
+        isHighQualityFilter = true
+    )
+    assertTrue(ddgHqUrl.contains("size:Large"))
+  }
+
+  @Test
+  fun `test social platform selection`() {
+    com.example.data.ScrollSearchStateBus.selectSocialPlatform(com.example.model.SocialPlatform.INSTAGRAM)
+    assertEquals(com.example.model.SocialPlatform.INSTAGRAM, com.example.data.ScrollSearchStateBus.selectedPlatform.value)
+
+    com.example.data.ScrollSearchStateBus.selectSocialPlatform(com.example.model.SocialPlatform.YOUTUBE_SHORTS)
+    assertEquals(com.example.model.SocialPlatform.YOUTUBE_SHORTS, com.example.data.ScrollSearchStateBus.selectedPlatform.value)
+
+    com.example.data.ScrollSearchStateBus.selectSocialPlatform(com.example.model.SocialPlatform.BLUESKY)
+    assertEquals(com.example.model.SocialPlatform.BLUESKY, com.example.data.ScrollSearchStateBus.selectedPlatform.value)
+
+    com.example.data.ScrollSearchStateBus.selectSocialPlatform(com.example.model.SocialPlatform.TIKTOK)
+    assertEquals(com.example.model.SocialPlatform.TIKTOK, com.example.data.ScrollSearchStateBus.selectedPlatform.value)
+  }
 }

@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.DarkMode
 import com.example.model.SearchEngine
+import com.example.model.SocialPlatform
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -108,6 +109,8 @@ fun DashboardScreen(
     val isSafeSearchDisabled by ScrollSearchStateBus.isSafeSearchDisabled.collectAsState()
     val isSuperFullscreen by ScrollSearchStateBus.isSuperFullscreenEnabled.collectAsState()
     val isDark by ScrollSearchStateBus.isDarkTheme.collectAsState()
+    val selectedPlatform by ScrollSearchStateBus.selectedPlatform.collectAsState()
+    val isHighQualityFilter by ScrollSearchStateBus.isHighQualityFilterEnabled.collectAsState()
     val tags by ScrollSearchStateBus.tags.collectAsState()
     val selectedTag by ScrollSearchStateBus.selectedTag.collectAsState()
     val detectionCount by ScrollSearchStateBus.detectionCount.collectAsState()
@@ -347,6 +350,66 @@ fun DashboardScreen(
                                 onClick = onRequestStoragePermission,
                                 modifier = Modifier.weight(1f)
                             )
+                        }
+                    }
+                }
+            }
+
+            // =========================================================================
+            // SEÇÃO LANDING PAGE: ESCOLHA A REDE SOCIAL PARA SCROLAR
+            // =========================================================================
+            item {
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = surfaceColor),
+                    modifier = Modifier.fillMaxWidth().testTag("landing_page_social_section")
+                ) {
+                    Column(modifier = Modifier.padding(18.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Escolha a Rede Social para Rolar",
+                                    color = textColor,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Text(
+                                    text = "Detecta posts, vídeos e buscas no TikTok, Instagram, Facebook, Shorts e Bluesky",
+                                    color = textMuted,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Carousel of Social Network Cards
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(SocialPlatform.entries) { platform ->
+                                val isSelected = selectedPlatform == platform
+                                SocialPlatformCard(
+                                    platform = platform,
+                                    isSelected = isSelected,
+                                    isDark = isDark,
+                                    onSelect = {
+                                        ScrollSearchStateBus.selectSocialPlatform(platform)
+                                    },
+                                    onLaunch = {
+                                        ScrollSearchStateBus.selectSocialPlatform(platform)
+                                        if (!isOverlayActive && isOverlayPermissionGranted) {
+                                            FloatingOverlayService.startService(context)
+                                        }
+                                        launchSocialApp(context, platform)
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -699,6 +762,66 @@ fun DashboardScreen(
                                     colors = SwitchDefaults.colors(
                                         checkedThumbColor = TikTokRed,
                                         checkedTrackColor = TikTokRed.copy(alpha = 0.4f)
+                                    )
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Filtro de Alta Qualidade (Apenas Imagens HD)
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isHighQualityFilter) TikTokCyan.copy(alpha = 0.20f) else (if (isDark) DarkSurfaceElevated else Color(0xFFF1F1F4)),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (isHighQualityFilter) TikTokCyan else Color.Gray.copy(alpha = 0.3f)
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { ScrollSearchStateBus.toggleHighQualityFilter() }
+                                .testTag("dashboard_high_quality_filter_card")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = if (isHighQualityFilter) "Filtro Alta Qualidade (HD): ATIVADO" else "Filtro Alta Qualidade (HD): DESATIVADO",
+                                            color = if (isHighQualityFilter) TikTokCyan else textColor,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = if (isHighQualityFilter) TikTokCyan else Color.Gray
+                                        ) {
+                                            Text(
+                                                text = if (isHighQualityFilter) "HD: ON" else "HD: OFF",
+                                                color = Color.Black,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        text = "Filtra apenas fotos e imagens grandes em alta resolução no Google, Bing, DuckDuckGo, Yahoo e Yandex",
+                                        color = textMuted,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                                Switch(
+                                    checked = isHighQualityFilter,
+                                    onCheckedChange = { ScrollSearchStateBus.setHighQualityFilter(it) },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = TikTokCyan,
+                                        checkedTrackColor = TikTokCyan.copy(alpha = 0.4f)
                                     )
                                 )
                             }
@@ -1138,6 +1261,186 @@ private fun PermissionStatusPill(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold
             )
+        }
+    }
+}
+
+fun launchSocialApp(context: Context, platform: SocialPlatform) {
+    var launched = false
+    for (pkg in platform.packageNames) {
+        val launchIntent = context.packageManager.getLaunchIntentForPackage(pkg)
+        if (launchIntent != null) {
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            try {
+                context.startActivity(launchIntent)
+                launched = true
+                break
+            } catch (e: Exception) {
+                android.util.Log.e("Dashboard", "Launch error: ${e.message}")
+            }
+        }
+    }
+    if (!launched) {
+        val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(platform.webFallbackUrl)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            context.startActivity(webIntent)
+        } catch (e: Exception) {
+            android.util.Log.e("Dashboard", "Web fallback error: ${e.message}")
+        }
+    }
+}
+
+@Composable
+fun SocialPlatformCard(
+    platform: SocialPlatform,
+    isSelected: Boolean,
+    isDark: Boolean,
+    onSelect: () -> Unit,
+    onLaunch: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val cardBg = if (isDark) DarkSurfaceElevated else Color.White
+    val textPrimary = if (isDark) Color.White else TikTokDarkText
+    val textMuted = if (isDark) Color(0xFFA0A0C0) else Color(0xFF6B6C7B)
+
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, platform.primaryColor) else null,
+        modifier = modifier
+            .width(260.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onSelect)
+            .testTag("social_platform_card_${platform.id}")
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Header with Platform Gradient Banner
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(75.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(platform.primaryColor, platform.accentColor)
+                        )
+                    )
+                    .padding(12.dp)
+            ) {
+                Column(modifier = Modifier.align(Alignment.BottomStart)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = platform.displayName,
+                            color = Color.White,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        if (isSelected) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                shape = CircleShape,
+                                color = Color.White
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selecionado",
+                                    tint = platform.primaryColor,
+                                    modifier = Modifier.size(14.dp).padding(1.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (isSelected) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color.Black.copy(alpha = 0.40f),
+                        modifier = Modifier.align(Alignment.TopEnd)
+                    ) {
+                        Text(
+                            text = "Ativo",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    text = platform.tagline,
+                    color = textMuted,
+                    fontSize = 11.sp,
+                    maxLines = 2
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "Criadores / Amostras:",
+                    color = textPrimary,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Creator quick simulation chips
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(platform.sampleCreators) { creator ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = platform.primaryColor.copy(alpha = 0.12f),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    onSelect()
+                                    ScrollSearchStateBus.updateDetectedUsername(creator)
+                                }
+                        ) {
+                            Text(
+                                text = "@$creator",
+                                color = platform.primaryColor,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Action Button: Abrir App e Rastrear
+                Button(
+                    onClick = onLaunch,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = platform.primaryColor,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("launch_platform_${platform.id}")
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                        contentDescription = "Abrir ${platform.displayName}",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Abrir & Rastrear",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
         }
     }
 }

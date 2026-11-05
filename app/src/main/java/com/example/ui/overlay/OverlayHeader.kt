@@ -3,6 +3,7 @@ package com.example.ui.overlay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -95,41 +96,31 @@ fun OverlayHeader(
             .fillMaxWidth()
             .background(surfaceColor)
     ) {
-        // Draggable Bar Handle at the very top allowing user to freely move menu bar across the screen
+        val heightRatio by ScrollSearchStateBus.heightRatio.collectAsState()
+        // Top handle strictly for RESIZING card height (expanding/shrinking card without lifting modal)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 4.dp)
+                .padding(vertical = 5.dp)
                 .pointerInput(Unit) {
-                    detectDragGestures { change, dragAmount ->
+                    detectVerticalDragGestures { change, dragAmount ->
                         change.consume()
-                        onMoveDrag?.invoke(dragAmount.x, dragAmount.y)
+                        val deltaRatio = -dragAmount / 1000f
+                        ScrollSearchStateBus.setHeightRatio(heightRatio + deltaRatio)
                     }
                 }
-                .testTag("draggable_menu_handle"),
+                .testTag("resize_card_handle"),
             contentAlignment = Alignment.Center
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.OpenWith,
-                    contentDescription = "Mover menu pela tela",
-                    tint = if (isDark) Color.White.copy(alpha = 0.45f) else Color.Black.copy(alpha = 0.35f),
-                    modifier = Modifier.size(12.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Box(
-                    modifier = Modifier
-                        .width(44.dp)
-                        .height(4.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (isDark) Color.White.copy(alpha = 0.40f) else Color.Black.copy(alpha = 0.25f)
-                        )
-                )
-            }
+            Box(
+                modifier = Modifier
+                    .width(48.dp)
+                    .height(5.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isDark) Color.White.copy(alpha = 0.50f) else Color.Black.copy(alpha = 0.35f)
+                    )
+            )
         }
 
         // Main Header Controls Row
@@ -340,6 +331,31 @@ fun OverlayHeader(
                     Text(
                         text = if (isSafeSearchDisabled) "Safe: OFF" else "Safe: ON",
                         color = if (isSafeSearchDisabled) SafeSearchOffGreen else textMutedColor,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(3.dp))
+
+                // Filtro de Alta Qualidade (HD)
+                val isHighQualityFilter by ScrollSearchStateBus.isHighQualityFilterEnabled.collectAsState()
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (isHighQualityFilter) TikTokCyan.copy(alpha = 0.20f) else pillBgColor,
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (isHighQualityFilter) TikTokCyan else Color.Gray.copy(alpha = 0.3f)
+                    ),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable { ScrollSearchStateBus.toggleHighQualityFilter() }
+                        .testTag("hd_filter_toggle_button")
+                ) {
+                    Text(
+                        text = if (isHighQualityFilter) "HD: ON" else "HD: OFF",
+                        color = if (isHighQualityFilter) TikTokCyan else textMutedColor,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.ExtraBold,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)

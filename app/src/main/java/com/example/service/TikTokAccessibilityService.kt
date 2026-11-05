@@ -6,22 +6,19 @@ import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.example.data.ScrollSearchStateBus
+import com.example.model.SocialPlatform
 import java.util.ArrayDeque
 import java.util.Locale
 
 open class TikTokAccessibilityService : AccessibilityService() {
 
     companion object {
-        private const val TAG = "TikTokDetector"
-        val TIKTOK_PACKAGES = setOf(
-            "com.zhiliaoapp.musically",
-            "com.ss.android.ugc.trill",
-            "com.ss.android.ugc.aweme"
-        )
-        private const val THROTTLE_MS = 35L
+        private const val TAG = "SocialLensDetector"
+        private const val THROTTLE_MS = 25L
 
-        // Known TikTok resource IDs for creator usernames across different versions
+        // Known resource IDs across TikTok, Instagram, Facebook, YouTube Shorts, and Bluesky
         private val TARGET_VIEW_IDS = listOf(
+            // TikTok
             "author_name",
             "user_name",
             "tv_author",
@@ -32,10 +29,33 @@ open class TikTokAccessibilityService : AccessibilityService() {
             "author_text",
             "feed_author",
             "profile_user_name",
-            "video_author"
+            "video_author",
+            "search_user_name",
+            "search_item_title",
+            "desc_text",
+            // Instagram
+            "row_feed_photo_profile_name",
+            "row_search_user_username",
+            "row_search_user_fullname",
+            "reel_viewer_author",
+            "secondary_label",
+            "username_text",
+            "action_bar_title",
+            // YouTube Shorts / Feed
+            "channel_name",
+            "reel_player_channel_name",
+            "reel_channel_name",
+            "channel_title",
+            // Facebook
+            "story_header_text",
+            "com.facebook.katana:id/author_name",
+            // Bluesky
+            "authorHandle",
+            "displayName",
+            "postHandle"
         )
 
-        // Reserved non-username words common in TikTok
+        // Non-username system/UI words to filter out
         private val BLACKLIST_TERMS = hashSetOf(
             "tiktok", "musically", "fyp", "foryou", "foryoupage", "para você", "paravoce",
             "seguindo", "following", "amigos", "friends", "compartilhar", "share",
@@ -44,7 +64,11 @@ open class TikTokAccessibilityService : AccessibilityService() {
             "pesquisar", "search", "adicionar", "add", "início", "inicio", "home",
             "perfil", "profile", "notificações", "notificacoes", "inbox", "caixa de entrada",
             "ao vivo", "live", "login", "cadastre-se", "explore", "descubra",
-            "seguir", "follow", "salvar", "save", "favorito", "favoritos", "bookmark"
+            "seguir", "follow", "salvar", "save", "favorito", "favoritos", "bookmark",
+            "instagram", "reels", "direct", "story", "stories", "facebook", "watch",
+            "youtube", "shorts", "inscrever-se", "subscribe", "inscrito", "subscribers",
+            "bluesky", "repost", "reply", "trending", "em alta", "pesquise", "procurar",
+            "limpar", "cancelar", "voltar", "filtrar", "tudo", "contas", "hashtags"
         )
     }
 
@@ -54,13 +78,26 @@ open class TikTokAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
-        val pkgName = event.packageName?.toString() ?: return
-        if (!TIKTOK_PACKAGES.contains(pkgName)) {
-            ScrollSearchStateBus.setTikTokForeground(false)
-            return
+        val pkgName = event.packageName?.toString() ?: ""
+        var platform = SocialPlatform.fromPackage(pkgName)
+
+        // If package is keyboard/search IME or system UI, check root window package
+        if (platform == null) {
+            val root = rootInActiveWindow
+            if (root != null) {
+                val rootPkg = root.packageName?.toString() ?: ""
+                platform = SocialPlatform.fromPackage(rootPkg)
+                root.recycle()
+            }
         }
 
-        ScrollSearchStateBus.setTikTokForeground(true)
+        if (platform != null) {
+            ScrollSearchStateBus.setTikTokForeground(true)
+            ScrollSearchStateBus.setActiveDetectedPlatform(platform)
+        } else {
+            // Not a recognized social app event
+            return
+        }
 
         val now = SystemClock.uptimeMillis()
         if (now - lastEventTime < THROTTLE_MS) {
@@ -68,35 +105,51 @@ open class TikTokAccessibilityService : AccessibilityService() {
         }
         lastEventTime = now
 
-        val rootNode = rootInActiveWindow ?: return
-        try {
-            val username = extractUsernameFast(rootNode)
-            if (!username.isNullOrBlank() && username != lastDetectedUser) {
-                lastDetectedUser = username
-                Log.d(TAG, "Detected TikTok creator: @$username")
-                ScrollSearchStateBus.updateDetectedUsername(username)
+        // Priority 1: If event has a source node (e.g. scrolling search results or video pager), scan it directly first
+        val sourceNode = event.source
+        var detected: String? = null
+        if (sourceNode != null) {
+            try {
+                detected = extractUsernameFast(sourceNode, maxNodes = 120)
+            } finally {
+                sourceNode.recycle()
             }
-        } finally {
-            rootNode.recycle()
+        }
+
+        // Priority 2: If not found in source node, scan active root window
+        if (detected.isNullOrBlank()) {
+            val rootNode = rootInActiveWindow
+            if (rootNode != null) {
+                try {
+                    detected = extractUsernameFast(rootNode, maxNodes = 180)
+                } finally {
+                    rootNode.recycle()
+                }
+            }
+        }
+
+        if (!detected.isNullOrBlank() && detected != lastDetectedUser) {
+            lastDetectedUser = detected
+            Log.d(TAG, "Detected post creator [${platform.displayName}]: @$detected")
+            ScrollSearchStateBus.updateDetectedUsername(detected)
         }
     }
 
     /**
-     * Ultra-fast BFS scanner limited to 70 nodes to ensure <2ms execution
-     * and zero UI lag during TikTok video scrolling.
+     * Fast BFS scanner designed to inspect post cards, search results, video headers,
+     * captions, and author handles. Operates in <3ms.
      */
-    private fun extractUsernameFast(root: AccessibilityNodeInfo): String? {
+    private fun extractUsernameFast(root: AccessibilityNodeInfo, maxNodes: Int): String? {
         val queue = ArrayDeque<AccessibilityNodeInfo>()
         queue.add(root)
 
         var visited = 0
-        val maxNodes = 70
 
         while (!queue.isEmpty() && visited < maxNodes) {
             val current = queue.poll() ?: break
             visited++
 
-            // Strategy 1: Check known TikTok View ID
+            // Strategy 1: Check known Target View ID
             val viewId = current.viewIdResourceName
             if (viewId != null) {
                 for (targetId in TARGET_VIEW_IDS) {
@@ -110,7 +163,7 @@ open class TikTokAccessibilityService : AccessibilityService() {
                 }
             }
 
-            // Strategy 2: Check Content Description pattern (e.g. "Perfil de charlidamelio" or "@khaby.lame")
+            // Strategy 2: Check Content Description pattern (e.g. "Perfil de charlidamelio", "@khaby.lame", "Canal MrBeast")
             val contentDesc = current.contentDescription?.toString()
             if (!contentDesc.isNullOrBlank()) {
                 val extracted = extractFromContentDescription(contentDesc)
@@ -119,11 +172,17 @@ open class TikTokAccessibilityService : AccessibilityService() {
                 }
             }
 
-            // Strategy 3: Check plain text if it strictly starts with @ or matches TikTok username pattern
-            val text = current.text?.toString()
+            // Strategy 3: Check plain text if it starts with @ or ends with .bsky.social
+            val text = current.text?.toString()?.trim()
             if (!text.isNullOrBlank()) {
                 if (text.startsWith("@")) {
                     val candidate = sanitizeUsername(text)
+                    if (candidate != null) {
+                        return candidate
+                    }
+                } else if (text.endsWith(".bsky.social")) {
+                    val clean = text.removeSuffix(".bsky.social").trim()
+                    val candidate = sanitizeUsername(clean)
                     if (candidate != null) {
                         return candidate
                     }
@@ -151,7 +210,12 @@ open class TikTokAccessibilityService : AccessibilityService() {
             "video of ",
             "video by ",
             "ver perfil de ",
-            "view profile of "
+            "view profile of ",
+            "canal de ",
+            "canal ",
+            "post de ",
+            "publicação de ",
+            "post by "
         )
         for (prefix in prefixes) {
             if (lower.startsWith(prefix)) {
@@ -168,10 +232,10 @@ open class TikTokAccessibilityService : AccessibilityService() {
 
     private fun sanitizeUsername(raw: String?): String? {
         if (raw.isNullOrBlank()) return null
-        val trimmed = raw.trim().removePrefix("@")
+        val trimmed = raw.trim().removePrefix("@").removeSuffix(":")
 
-        // TikTok usernames: 2-30 chars, alphanumeric with dots and underscores
-        if (trimmed.length in 2..30 && trimmed.matches(Regex("^[a-zA-Z0-9._]+$"))) {
+        // Social handles: 2-35 chars, alphanumeric with dots, dashes and underscores
+        if (trimmed.length in 2..35 && trimmed.matches(Regex("^[a-zA-Z0-9._-]+$"))) {
             val lower = trimmed.lowercase(Locale.ROOT)
             if (!BLACKLIST_TERMS.contains(lower) && !lower.all { it.isDigit() }) {
                 return trimmed
@@ -181,7 +245,7 @@ open class TikTokAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() {
-        Log.w(TAG, "TikTokAccessibilityService interrupted")
+        Log.w(TAG, "AccessibilityService interrupted")
     }
 
     override fun onDestroy() {
