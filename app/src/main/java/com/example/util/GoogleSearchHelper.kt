@@ -82,7 +82,7 @@ object GoogleSearchHelper {
             }
             com.example.model.SearchEngine.YANDEX -> {
                 val safeParam = if (isSafeSearchDisabled) "&family=0" else "&family=1"
-                val hqParam = if (isHighQualityFilter) "&isize=large" else ""
+                val hqParam = if (isHighQualityFilter) "&isize=wallpaper" else ""
                 when (searchType) {
                     com.example.model.SearchType.IMAGES ->
                         "https://yandex.com/images/search?text=$encoded$safeParam$hqParam"

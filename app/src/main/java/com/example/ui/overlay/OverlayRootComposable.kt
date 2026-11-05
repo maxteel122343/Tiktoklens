@@ -207,20 +207,23 @@ fun OverlayRootComposable(
                             onMoveDrag = onMenuDrag
                         )
 
-                        TagsRow(
-                            tags = tags,
-                            selectedTag = selectedTag,
-                            onTagSelected = { ScrollSearchStateBus.selectTag(it) },
-                            onAddCustomTag = { ScrollSearchStateBus.addCustomTag(it) }
-                        )
+                        val isHeaderMenuCollapsed by ScrollSearchStateBus.isHeaderMenuCollapsed.collectAsState()
+                        if (!isHeaderMenuCollapsed) {
+                            TagsRow(
+                                tags = tags,
+                                selectedTag = selectedTag,
+                                onTagSelected = { ScrollSearchStateBus.selectTag(it) },
+                                onAddCustomTag = { ScrollSearchStateBus.addCustomTag(it) }
+                            )
 
-                        SearchBarComponent(
-                            query = searchBarText,
-                            onQueryChange = { ScrollSearchStateBus.setSearchBarText(it) },
-                            placeholder = "Pesquisar imagens com @${username ?: "criador"}...",
-                            onSearchSubmitted = { ScrollSearchStateBus.setSearchBarText(it) },
-                            onFocusChanged = { ScrollSearchStateBus.setSearchFocused(it) }
-                        )
+                            SearchBarComponent(
+                                query = searchBarText,
+                                onQueryChange = { ScrollSearchStateBus.setSearchBarText(it) },
+                                placeholder = "Pesquisar imagens com @${username ?: "criador"}...",
+                                onSearchSubmitted = { ScrollSearchStateBus.setSearchBarText(it) },
+                                onFocusChanged = { ScrollSearchStateBus.setSearchFocused(it) }
+                            )
+                        }
 
                         // Google Images WebView in all V versions!
                         AndroidWebViewContainer(

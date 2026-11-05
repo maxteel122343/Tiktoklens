@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,13 +17,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloseFullscreen
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.LightMode
@@ -85,6 +93,8 @@ fun OverlayHeader(
     val isDark by ScrollSearchStateBus.isDarkTheme.collectAsState()
     val searchType by ScrollSearchStateBus.selectedSearchType.collectAsState()
     val isSuperFullscreen by ScrollSearchStateBus.isSuperFullscreenEnabled.collectAsState()
+    val isModalFullscreen by ScrollSearchStateBus.isModalFullscreen.collectAsState()
+    val isHeaderMenuCollapsed by ScrollSearchStateBus.isHeaderMenuCollapsed.collectAsState()
 
     val surfaceColor = if (isDark) DarkSurface else Color.White
     val textPrimaryColor = if (isDark) Color.White else TikTokDarkText
@@ -187,11 +197,13 @@ fun OverlayHeader(
                 }
             }
 
-            // Controls & Toggles Row (scrollable middle controls + pinned Minimize & Close)
+            // Scrollable middle controls so chips never wrap or push Minimize/Close off-screen
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1.3f),
-                horizontalArrangement = Arrangement.End
+                modifier = Modifier
+                    .weight(1.2f)
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 // UI Version Selector (F1-F7, V1-V7)
                 Box {
@@ -391,11 +403,42 @@ fun OverlayHeader(
                         modifier = Modifier.size(16.dp)
                     )
                 }
+            }
 
-                // Minimize Button
+            // Pinned Right Action Icons: Collapse/Expand Menu, Modal Cheio, Minimize, Close
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Collapse/Expand V-mode Menu Button
+                IconButton(
+                    onClick = { ScrollSearchStateBus.toggleHeaderMenuCollapsed() },
+                    modifier = Modifier.size(26.dp).testTag("overlay_collapse_menu_button")
+                ) {
+                    Icon(
+                        imageVector = if (isHeaderMenuCollapsed) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                        contentDescription = if (isHeaderMenuCollapsed) "Expandir menu" else "Encolher menu",
+                        tint = textMutedColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
+                // Modal Cheio (100% Fullscreen Modal) Button
+                IconButton(
+                    onClick = { ScrollSearchStateBus.toggleModalFullscreen() },
+                    modifier = Modifier.size(26.dp).testTag("overlay_modal_fullscreen_button")
+                ) {
+                    Icon(
+                        imageVector = if (isModalFullscreen) Icons.Default.CloseFullscreen else Icons.Default.OpenInFull,
+                        contentDescription = if (isModalFullscreen) "Sair do Modal Cheio" else "Modal Cheio",
+                        tint = if (isModalFullscreen) TikTokCyan else textMutedColor,
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
+
+                // Minimize Button (Always Visible)
                 IconButton(
                     onClick = onMinimize,
-                    modifier = Modifier.size(28.dp).testTag("overlay_minimize_button")
+                    modifier = Modifier.size(26.dp).testTag("overlay_minimize_button")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Remove,
@@ -405,10 +448,10 @@ fun OverlayHeader(
                     )
                 }
 
-                // Close Button
+                // Close Button (Always Visible)
                 IconButton(
                     onClick = onClose,
-                    modifier = Modifier.size(28.dp).testTag("overlay_close_button")
+                    modifier = Modifier.size(26.dp).testTag("overlay_close_button")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
@@ -419,6 +462,8 @@ fun OverlayHeader(
                 }
             }
         }
+
+        if (!isHeaderMenuCollapsed) {
 
         // Secondary Tabs Bar: [Imagens] [Vídeos] [Sites] [Notícias] + [Super Tela Cheia]
         Row(
@@ -489,6 +534,7 @@ fun OverlayHeader(
                     )
                 }
             }
+        }
         }
     }
 }

@@ -35,11 +35,15 @@ open class TikTokAccessibilityService : AccessibilityService() {
             "desc_text",
             // Instagram
             "row_feed_photo_profile_name",
+            "row_feed_profile_name",
+            "feed_header_username",
+            "clips_author_username",
             "row_search_user_username",
             "row_search_user_fullname",
             "reel_viewer_author",
             "secondary_label",
             "username_text",
+            "username",
             "action_bar_title",
             // YouTube Shorts / Feed
             "channel_name",
@@ -74,6 +78,7 @@ open class TikTokAccessibilityService : AccessibilityService() {
 
     private val debounceHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var pendingScanRunnable: Runnable? = null
+    private var lastScanTime = 0L
     private var lastDetectedUser: String? = null
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -92,6 +97,10 @@ open class TikTokAccessibilityService : AccessibilityService() {
             }
         }
 
+        if (platform == null && isBrowserPackage(pkgName)) {
+            platform = ScrollSearchStateBus.selectedPlatform.value
+        }
+
         if (platform != null) {
             ScrollSearchStateBus.setTikTokForeground(true)
             ScrollSearchStateBus.setActiveDetectedPlatform(platform)
@@ -100,24 +109,57 @@ open class TikTokAccessibilityService : AccessibilityService() {
             return
         }
 
-        // Trailing-edge debounce: ensures we always scan the settled screen after scrolling
-        // without blocking the main thread on every intermediate scroll frame.
-        pendingScanRunnable?.let { debounceHandler.removeCallbacks(it) }
+        val now = SystemClock.uptimeMillis()
+        val elapsed = now - lastScanTime
         val activePlatform = platform
-        val runnable = Runnable {
+
+        if (elapsed >= 150L) {
+            pendingScanRunnable?.let { debounceHandler.removeCallbacks(it) }
+            pendingScanRunnable = null
+            lastScanTime = now
             scanActiveWindowForUsername(activePlatform)
+        } else if (pendingScanRunnable == null) {
+            val runnable = Runnable {
+                pendingScanRunnable = null
+                lastScanTime = SystemClock.uptimeMillis()
+                scanActiveWindowForUsername(activePlatform)
+            }
+            pendingScanRunnable = runnable
+            debounceHandler.postDelayed(runnable, 150L - elapsed)
         }
-        pendingScanRunnable = runnable
-        debounceHandler.postDelayed(runnable, 80L)
     }
 
     private fun scanActiveWindowForUsername(platform: SocialPlatform) {
-        val rootNode = rootInActiveWindow ?: return
         var detected: String? = null
-        try {
-            detected = extractUsernameFast(rootNode, maxNodes = 200)
-        } finally {
-            rootNode.recycle()
+
+        val rootNode = rootInActiveWindow
+        if (rootNode != null) {
+            try {
+                detected = extractUsernameFast(rootNode, maxNodes = 800)
+            } finally {
+                rootNode.recycle()
+            }
+        }
+
+        if (detected.isNullOrBlank()) {
+            try {
+                val windowList = windows
+                if (windowList != null) {
+                    for (window in windowList) {
+                        val wRoot = window.root ?: continue
+                        try {
+                            val wPkg = wRoot.packageName?.toString() ?: ""
+                            if (SocialPlatform.fromPackage(wPkg) == platform) {
+                                detected = extractUsernameFast(wRoot, maxNodes = 350)
+                                if (!detected.isNullOrBlank()) break
+                            }
+                        } finally {
+                            wRoot.recycle()
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+            }
         }
 
         if (!detected.isNullOrBlank() && detected != lastDetectedUser) {
@@ -128,7 +170,7 @@ open class TikTokAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * Fast BFS scanner designed to inspect visible post cards, search results, video headers,
+     * Fast BFS scanner designed to inspect post cards, search results, video headers,
      * captions, and author handles.
      */
     private fun extractUsernameFast(root: AccessibilityNodeInfo, maxNodes: Int): String? {
@@ -141,10 +183,6 @@ open class TikTokAccessibilityService : AccessibilityService() {
             val current = queue.poll() ?: break
             visited++
 
-            if (!current.isVisibleToUser) {
-                continue
-            }
-
             // Strategy 1: Check known Target View ID
             val viewId = current.viewIdResourceName
             if (viewId != null) {
@@ -152,6 +190,7 @@ open class TikTokAccessibilityService : AccessibilityService() {
                     if (viewId.contains(targetId, ignoreCase = true)) {
                         val text = current.text?.toString()?.trim()
                         val valid = sanitizeUsername(text)
+                            ?: sanitizeUsername(current.contentDescription?.toString()?.trim())
                         if (valid != null) {
                             return valid
                         }
@@ -238,6 +277,15 @@ open class TikTokAccessibilityService : AccessibilityService() {
             }
         }
         return null
+    }
+
+    private fun isBrowserPackage(pkg: String): Boolean {
+        return pkg == "com.android.chrome" ||
+            pkg == "com.sec.android.app.sbrowser" ||
+            pkg == "org.mozilla.firefox" ||
+            pkg == "com.opera.browser" ||
+            pkg == "com.brave.browser" ||
+            pkg == "com.microsoft.emmx"
     }
 
     override fun onInterrupt() {

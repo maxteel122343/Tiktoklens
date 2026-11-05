@@ -131,10 +131,12 @@ class FloatingOverlayManager(private val context: Context) {
             combine(
                 ScrollSearchStateBus.overlayOffsetY,
                 ScrollSearchStateBus.overlayOffsetX,
-                ScrollSearchStateBus.isSuperFullscreenEnabled
-            ) { _, _, _ ->
+                ScrollSearchStateBus.isSuperFullscreenEnabled,
+                ScrollSearchStateBus.isModalFullscreen
+            ) { _, _, _, _ ->
                 recalculateLayoutParams()
             }.collectLatest {
+                kotlinx.coroutines.delay(16L)
                 applyLayoutParams()
             }
         }
@@ -232,6 +234,16 @@ class FloatingOverlayManager(private val context: Context) {
             layoutParams.gravity = Gravity.TOP or Gravity.START
             layoutParams.x = ScrollSearchStateBus.bubbleX.value
             layoutParams.y = ScrollSearchStateBus.bubbleY.value
+            return
+        }
+
+        if (ScrollSearchStateBus.isModalFullscreen.value) {
+            layoutParams.flags = baseFlags or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+            layoutParams.width = WindowManager.LayoutParams.MATCH_PARENT
+            layoutParams.height = WindowManager.LayoutParams.MATCH_PARENT
+            layoutParams.gravity = Gravity.TOP or Gravity.START
+            layoutParams.x = 0
+            layoutParams.y = 0
             return
         }
 

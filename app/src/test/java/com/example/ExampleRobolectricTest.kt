@@ -60,4 +60,29 @@ class ExampleRobolectricTest {
         ScrollSearchStateBus.addCustomTag("photoshoot")
         assertTrue(ScrollSearchStateBus.tags.value.contains("photoshoot"))
     }
+
+    @Test
+    fun `test accessibility service detects instagram and tiktok usernames`() {
+        val service = org.robolectric.Robolectric.buildService(com.example.service.TikTokAccessibilityService::class.java)
+            .create()
+            .get()
+
+        val root = android.view.accessibility.AccessibilityNodeInfo.obtain()
+        root.packageName = "com.instagram.android"
+
+        val child = android.view.accessibility.AccessibilityNodeInfo.obtain()
+        child.packageName = "com.instagram.android"
+        child.viewIdResourceName = "com.instagram.android:id/row_feed_photo_profile_name"
+        child.text = "neymarjr"
+
+        val shadowRoot = org.robolectric.Shadows.shadowOf(root)
+        shadowRoot.addChild(child)
+
+        val method = com.example.service.TikTokAccessibilityService::class.java
+            .getDeclaredMethod("extractUsernameFast", android.view.accessibility.AccessibilityNodeInfo::class.java, Int::class.javaPrimitiveType)
+        method.isAccessible = true
+        val detected = method.invoke(service, root, 800) as String?
+
+        assertEquals("neymarjr", detected)
+    }
 }

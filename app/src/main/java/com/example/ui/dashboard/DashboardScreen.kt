@@ -825,6 +825,105 @@ fun DashboardScreen(
                                     )
                                 )
                             }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // AdBlocker Toggle
+                            val isAdBlockEnabled by ScrollSearchStateBus.isAdBlockEnabled.collectAsState()
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                    Text(
+                                        text = "Bloqueador de Anúncios (AdBlock)",
+                                        color = textColor,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Bloqueia anúncios e rastreadores automaticamente ao abrir sites no overlay",
+                                        color = textMuted,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                                Switch(
+                                    checked = isAdBlockEnabled,
+                                    onCheckedChange = { ScrollSearchStateBus.toggleAdBlock() },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = TikTokCyan,
+                                        checkedTrackColor = TikTokCyan.copy(alpha = 0.4f)
+                                    ),
+                                    modifier = Modifier.testTag("adblock_toggle_switch")
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Auto-Download Video on Scroll Toggle
+                            val isAutoDownloadVideo by ScrollSearchStateBus.isAutoDownloadVideoEnabled.collectAsState()
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                    Text(
+                                        text = "Download Automático de Vídeos ao Rolar",
+                                        color = textColor,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Captura e baixa automaticamente o link do vídeo do @username detectado ao rolar",
+                                        color = textMuted,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                                Switch(
+                                    checked = isAutoDownloadVideo,
+                                    onCheckedChange = { ScrollSearchStateBus.toggleAutoDownloadVideo() },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = TikTokRed,
+                                        checkedTrackColor = TikTokRed.copy(alpha = 0.4f)
+                                    ),
+                                    modifier = Modifier.testTag("auto_download_video_switch")
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Picture-in-Picture (PiP) Video Toggle
+                            val isPipVideoEnabled by ScrollSearchStateBus.isPipVideoEnabled.collectAsState()
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                    Text(
+                                        text = "Modo Picture-in-Picture (PiP) ao Assistir Vídeo",
+                                        color = textColor,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Exibe o vídeo em janela flutuante Picture-in-Picture sobre a tela do celular",
+                                        color = textMuted,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                                Switch(
+                                    checked = isPipVideoEnabled,
+                                    onCheckedChange = { ScrollSearchStateBus.togglePipVideo() },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = TikTokCyan,
+                                        checkedTrackColor = TikTokCyan.copy(alpha = 0.4f)
+                                    ),
+                                    modifier = Modifier.testTag("pip_video_toggle_switch")
+                                )
+                            }
                         }
                     }
                 }

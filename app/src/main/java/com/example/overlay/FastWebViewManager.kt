@@ -293,6 +293,23 @@ class FastWebViewManager(private val context: Context) {
                         onPageFinishedListener?.invoke()
                     }
 
+                    override fun shouldInterceptRequest(
+                        view: WebView?,
+                        request: WebResourceRequest?
+                    ): android.webkit.WebResourceResponse? {
+                        if (ScrollSearchStateBus.isAdBlockEnabled.value) {
+                            val host = request?.url?.host?.lowercase() ?: ""
+                            if (isAdHost(host)) {
+                                return android.webkit.WebResourceResponse(
+                                    "text/plain",
+                                    "utf-8",
+                                    java.io.ByteArrayInputStream(ByteArray(0))
+                                )
+                            }
+                        }
+                        return super.shouldInterceptRequest(view, request)
+                    }
+
                     override fun onReceivedError(
                         view: WebView?,
                         request: WebResourceRequest?,
@@ -371,10 +388,12 @@ class FastWebViewManager(private val context: Context) {
                 cookieManager.setCookie("https://duckduckgo.com", "kp=-2; domain=.duckduckgo.com; path=/; SameSite=None; Secure")
                 cookieManager.setCookie("https://www.bing.com", "SRCHHPGUSR=ADLT=OFF; domain=.bing.com; path=/; SameSite=None; Secure")
                 cookieManager.setCookie("https://www.google.com", "safe=off; domain=.google.com; path=/; SameSite=None; Secure")
+                cookieManager.setCookie("https://search.yahoo.com", "sB=vm=p; domain=.yahoo.com; path=/; SameSite=None; Secure")
             } else {
                 cookieManager.setCookie("https://duckduckgo.com", "kp=1; domain=.duckduckgo.com; path=/; SameSite=None; Secure")
                 cookieManager.setCookie("https://www.bing.com", "SRCHHPGUSR=ADLT=STRICT; domain=.bing.com; path=/; SameSite=None; Secure")
                 cookieManager.setCookie("https://www.google.com", "safe=active; domain=.google.com; path=/; SameSite=None; Secure")
+                cookieManager.setCookie("https://search.yahoo.com", "sB=vm=r; domain=.yahoo.com; path=/; SameSite=None; Secure")
             }
             cookieManager.flush()
         } catch (e: Exception) {
@@ -422,6 +441,28 @@ class FastWebViewManager(private val context: Context) {
             initWebView()
             currentUrl?.let { loadSearchQuery(it, isPureMode, currentQualityParam) }
         }
+    }
+
+    private fun isAdHost(host: String): Boolean {
+        if (host.isEmpty()) return false
+        return host.contains("doubleclick.net") ||
+            host.contains("googlesyndication.com") ||
+            host.contains("googleadservices.com") ||
+            host.contains("adnxs.com") ||
+            host.contains("ads.yahoo.com") ||
+            host.contains("an.yandex.ru") ||
+            host.contains("mc.yandex.ru") ||
+            host.contains("amazon-adsystem.com") ||
+            host.contains("criteo.com") ||
+            host.contains("taboola.com") ||
+            host.contains("outbrain.com") ||
+            host.contains("pubmatic.com") ||
+            host.contains("rubiconproject.com") ||
+            host.contains("openx.net") ||
+            host.contains("popads.net") ||
+            host.contains("propellerads.com") ||
+            host.startsWith("ads.") ||
+            host.startsWith("ad.")
     }
 
     fun destroy() {

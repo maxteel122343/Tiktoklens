@@ -33,6 +33,29 @@ object ScrollSearchStateBus {
     private val _isSuperFullscreenEnabled = MutableStateFlow(true)
     val isSuperFullscreenEnabled: StateFlow<Boolean> = _isSuperFullscreenEnabled.asStateFlow()
 
+    // Modal Cheio (ocupa 100% da tela)
+    private val _isModalFullscreen = MutableStateFlow(false)
+    val isModalFullscreen: StateFlow<Boolean> = _isModalFullscreen.asStateFlow()
+
+    // Encolher/Expandir menu do cabeçalho nas versões V
+    private val _isHeaderMenuCollapsed = MutableStateFlow(false)
+    val isHeaderMenuCollapsed: StateFlow<Boolean> = _isHeaderMenuCollapsed.asStateFlow()
+
+    // Bloqueador de Anúncios (AdBlock) ao entrar em sites
+    private val _isAdBlockEnabled = MutableStateFlow(true)
+    val isAdBlockEnabled: StateFlow<Boolean> = _isAdBlockEnabled.asStateFlow()
+
+    // Download automático de vídeo ao rolar
+    private val _isAutoDownloadVideoEnabled = MutableStateFlow(false)
+    val isAutoDownloadVideoEnabled: StateFlow<Boolean> = _isAutoDownloadVideoEnabled.asStateFlow()
+
+    // Modo Picture-in-Picture (PiP) ao assistir vídeo
+    private val _isPipVideoEnabled = MutableStateFlow(true)
+    val isPipVideoEnabled: StateFlow<Boolean> = _isPipVideoEnabled.asStateFlow()
+
+    private val _lastDetectedVideoUrl = MutableStateFlow<String?>(null)
+    val lastDetectedVideoUrl: StateFlow<String?> = _lastDetectedVideoUrl.asStateFlow()
+
     // Unread notification badge count when bubble is minimized (e.g. "3" in red badge)
     private val _unreadNotificationCount = MutableStateFlow(3)
     val unreadNotificationCount: StateFlow<Int> = _unreadNotificationCount.asStateFlow()
@@ -195,6 +218,34 @@ object ScrollSearchStateBus {
 
     fun setSuperFullscreen(enabled: Boolean) {
         _isSuperFullscreenEnabled.value = enabled
+    }
+
+    fun toggleModalFullscreen() {
+        _isModalFullscreen.value = !_isModalFullscreen.value
+    }
+
+    fun setModalFullscreen(enabled: Boolean) {
+        _isModalFullscreen.value = enabled
+    }
+
+    fun toggleHeaderMenuCollapsed() {
+        _isHeaderMenuCollapsed.value = !_isHeaderMenuCollapsed.value
+    }
+
+    fun toggleAdBlock() {
+        _isAdBlockEnabled.value = !_isAdBlockEnabled.value
+    }
+
+    fun toggleAutoDownloadVideo() {
+        _isAutoDownloadVideoEnabled.value = !_isAutoDownloadVideoEnabled.value
+    }
+
+    fun togglePipVideo() {
+        _isPipVideoEnabled.value = !_isPipVideoEnabled.value
+    }
+
+    fun updateDetectedVideoUrl(url: String?) {
+        _lastDetectedVideoUrl.value = url
     }
 
     fun toggleHighQualityFilter() {
