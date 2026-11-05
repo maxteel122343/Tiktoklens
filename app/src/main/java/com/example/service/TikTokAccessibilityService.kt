@@ -72,7 +72,8 @@ open class TikTokAccessibilityService : AccessibilityService() {
         )
     }
 
-    private var lastEventTime = 0L
+    private val debounceHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var pendingScanRunnable: Runnable? = null
     private var lastDetectedUser: String? = null
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -99,33 +100,24 @@ open class TikTokAccessibilityService : AccessibilityService() {
             return
         }
 
-        val now = SystemClock.uptimeMillis()
-        if (now - lastEventTime < THROTTLE_MS) {
-            return
+        // Trailing-edge debounce: ensures we always scan the settled screen after scrolling
+        // without blocking the main thread on every intermediate scroll frame.
+        pendingScanRunnable?.let { debounceHandler.removeCallbacks(it) }
+        val activePlatform = platform
+        val runnable = Runnable {
+            scanActiveWindowForUsername(activePlatform)
         }
-        lastEventTime = now
+        pendingScanRunnable = runnable
+        debounceHandler.postDelayed(runnable, 80L)
+    }
 
-        // Priority 1: If event has a source node (e.g. scrolling search results or video pager), scan it directly first
-        val sourceNode = event.source
+    private fun scanActiveWindowForUsername(platform: SocialPlatform) {
+        val rootNode = rootInActiveWindow ?: return
         var detected: String? = null
-        if (sourceNode != null) {
-            try {
-                detected = extractUsernameFast(sourceNode, maxNodes = 120)
-            } finally {
-                sourceNode.recycle()
-            }
-        }
-
-        // Priority 2: If not found in source node, scan active root window
-        if (detected.isNullOrBlank()) {
-            val rootNode = rootInActiveWindow
-            if (rootNode != null) {
-                try {
-                    detected = extractUsernameFast(rootNode, maxNodes = 180)
-                } finally {
-                    rootNode.recycle()
-                }
-            }
+        try {
+            detected = extractUsernameFast(rootNode, maxNodes = 200)
+        } finally {
+            rootNode.recycle()
         }
 
         if (!detected.isNullOrBlank() && detected != lastDetectedUser) {
@@ -136,8 +128,8 @@ open class TikTokAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * Fast BFS scanner designed to inspect post cards, search results, video headers,
-     * captions, and author handles. Operates in <3ms.
+     * Fast BFS scanner designed to inspect visible post cards, search results, video headers,
+     * captions, and author handles.
      */
     private fun extractUsernameFast(root: AccessibilityNodeInfo, maxNodes: Int): String? {
         val queue = ArrayDeque<AccessibilityNodeInfo>()
@@ -148,6 +140,10 @@ open class TikTokAccessibilityService : AccessibilityService() {
         while (!queue.isEmpty() && visited < maxNodes) {
             val current = queue.poll() ?: break
             visited++
+
+            if (!current.isVisibleToUser) {
+                continue
+            }
 
             // Strategy 1: Check known Target View ID
             val viewId = current.viewIdResourceName

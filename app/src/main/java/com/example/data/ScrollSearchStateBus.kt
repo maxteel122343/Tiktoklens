@@ -324,6 +324,10 @@ object ScrollSearchStateBus {
         _heightRatio.value = ratio.coerceIn(0.20f, 0.88f)
     }
 
+    fun adjustHeightRatio(delta: Float) {
+        _heightRatio.value = (_heightRatio.value + delta).coerceIn(0.20f, 0.88f)
+    }
+
     fun setTikTokForeground(inForeground: Boolean) {
         _isTikTokForeground.value = inForeground
     }

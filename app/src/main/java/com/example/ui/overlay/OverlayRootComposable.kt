@@ -115,7 +115,7 @@ fun OverlayRootComposable(
                                         detectVerticalDragGestures { change, dragAmount ->
                                             change.consume()
                                             val deltaRatio = -dragAmount / 1200f
-                                            ScrollSearchStateBus.setHeightRatio(heightRatio + deltaRatio)
+                                            ScrollSearchStateBus.adjustHeightRatio(deltaRatio)
                                         }
                                     }
                                     .testTag("top_border_resize_handle_f"),

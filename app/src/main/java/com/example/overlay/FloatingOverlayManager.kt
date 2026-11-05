@@ -122,6 +122,7 @@ class FloatingOverlayManager(private val context: Context) {
             ) { collapsed, version, ratio, isPhotoDetail, isV1Expanded ->
                 recalculateLayoutParams(collapsed, version, ratio, isPhotoDetail, isV1Expanded)
             }.collectLatest {
+                kotlinx.coroutines.delay(16L)
                 applyLayoutParams()
             }
         }
@@ -313,11 +314,8 @@ class FloatingOverlayManager(private val context: Context) {
                 windowManager.updateViewLayout(composeView, layoutParams)
             } else {
                 // Bottom card: dragging vertically changes the card's height smoothly
-                val currentRatio = ScrollSearchStateBus.heightRatio.value
                 val deltaRatio = -deltaY / screenHeight.toFloat()
-                ScrollSearchStateBus.setHeightRatio(currentRatio + deltaRatio)
-                recalculateLayoutParams()
-                windowManager.updateViewLayout(composeView, layoutParams)
+                ScrollSearchStateBus.adjustHeightRatio(deltaRatio)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error dragging menu: ${e.message}")

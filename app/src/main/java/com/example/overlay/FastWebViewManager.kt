@@ -274,9 +274,14 @@ class FastWebViewManager(private val context: Context) {
 
                 addJavascriptInterface(ScrollSearchBridge(), "ScrollSearchBridge")
 
+                var cssInjectedForPage = false
+                var buttonsInjectedForPage = false
+
                 webViewClient = object : WebViewClient() {
                     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                         super.onPageStarted(view, url, favicon)
+                        cssInjectedForPage = false
+                        buttonsInjectedForPage = false
                         onPageStartedListener?.invoke()
                     }
 
@@ -300,10 +305,12 @@ class FastWebViewManager(private val context: Context) {
 
                 webChromeClient = object : WebChromeClient() {
                     override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                        if (newProgress >= 30) {
+                        if (newProgress >= 35 && !cssInjectedForPage) {
+                            cssInjectedForPage = true
                             applyCurrentCss(view)
                         }
-                        if (newProgress >= 50) {
+                        if (newProgress >= 65 && !buttonsInjectedForPage) {
+                            buttonsInjectedForPage = true
                             view?.evaluateJavascript(GoogleSearchHelper.getImageOverlayButtonsScript(), null)
                         }
                     }

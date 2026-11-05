@@ -106,7 +106,7 @@ fun OverlayHeader(
                     detectVerticalDragGestures { change, dragAmount ->
                         change.consume()
                         val deltaRatio = -dragAmount / 1000f
-                        ScrollSearchStateBus.setHeightRatio(heightRatio + deltaRatio)
+                        ScrollSearchStateBus.adjustHeightRatio(deltaRatio)
                     }
                 }
                 .testTag("resize_card_handle"),
@@ -187,9 +187,11 @@ fun OverlayHeader(
                 }
             }
 
-            // Controls & Toggles Row
+            // Controls & Toggles Row (scrollable middle controls + pinned Minimize & Close)
             Row(
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1.3f),
+                horizontalArrangement = Arrangement.End
             ) {
                 // UI Version Selector (F1-F7, V1-V7)
                 Box {

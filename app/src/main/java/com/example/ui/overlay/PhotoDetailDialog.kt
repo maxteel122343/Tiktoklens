@@ -205,11 +205,12 @@ fun PhotoDetailDialog(
                     }
                 }
 
-                // Resolve highest quality model
+                // Resolve highest quality model: always prefer decoded Base64 or imageUrl first
+                // because hardware-accelerated WebView bitmap capture can be black on the first frame.
                 val modelToUse: Any = when {
-                    isCurrentCaptured && capturedBitmap != null -> capturedBitmap!!
                     decodedBase64Bitmap != null -> decodedBase64Bitmap
                     imageUrl.isNotBlank() -> imageUrl
+                    isCurrentCaptured && capturedBitmap != null -> capturedBitmap!!
                     capturedBitmap != null -> capturedBitmap!!
                     else -> ""
                 }
