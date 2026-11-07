@@ -206,6 +206,30 @@ fun OverlayHeader(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                // Plan Indicator Badge (Premium vs Basic)
+                val isPremiumActive by ScrollSearchStateBus.isPremiumActive.collectAsState()
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isPremiumActive) Color(0x33FFD700) else pillBgColor,
+                    border = if (isPremiumActive) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700)) else null,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { ScrollSearchStateBus.togglePlan() }
+                        .testTag("header_plan_badge")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isPremiumActive) "👑 PREMIUM" else "BÁSICO",
+                            color = if (isPremiumActive) Color(0xFFFFD700) else textMutedColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+
                 // UI Version Selector (F1-F7, V1-V7)
                 Box {
                     Surface(

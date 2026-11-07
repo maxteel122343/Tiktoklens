@@ -189,6 +189,24 @@ class FloatingOverlayManager(private val context: Context) {
                 }
             }
         }
+
+        // Observe plan changes (when returning to Basic mode, reload search query in WebView)
+        scope.launch {
+            ScrollSearchStateBus.isPremiumActive.drop(1).collectLatest { isPremium ->
+                if (!isPremium) {
+                    val query = ScrollSearchStateBus.getEffectiveSearchQuery()
+                    val version = ScrollSearchStateBus.activeVersion.value
+                    val quality = ScrollSearchStateBus.imageQuality.value
+                    val searchType = ScrollSearchStateBus.selectedSearchType.value
+                    fastWebViewManager?.loadSearchQuery(
+                        query = query,
+                        isPure = version.isCleanPhotoOnly,
+                        qualityParam = quality.tbsParam,
+                        searchType = searchType
+                    )
+                }
+            }
+        }
     }
 
     private fun recalculateLayoutParams(
@@ -350,16 +368,18 @@ class FloatingOverlayManager(private val context: Context) {
     }
 
     private fun onSearchQueryTriggered(query: String) {
-        val cleanQuery = query.trim().ifEmpty { "instagram" }
+        val cleanQuery = query.trim().ifEmpty { "tiktok" }
         val currentVersion = ScrollSearchStateBus.activeVersion.value
         val quality = ScrollSearchStateBus.imageQuality.value
 
-        // Load query directly into FastWebViewManager
-        fastWebViewManager?.loadSearchQuery(
-            query = cleanQuery,
-            isPure = currentVersion.isCleanPhotoOnly,
-            qualityParam = quality.tbsParam
-        )
+        // Only load into FastWebViewManager if in Basic mode (Premium uses Google Custom Search API directly)
+        if (!ScrollSearchStateBus.isPremiumActive.value) {
+            fastWebViewManager?.loadSearchQuery(
+                query = cleanQuery,
+                isPure = currentVersion.isCleanPhotoOnly,
+                qualityParam = quality.tbsParam
+            )
+        }
     }
 
     fun cleanResetWebView() {

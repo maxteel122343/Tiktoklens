@@ -2,6 +2,7 @@ package com.example.ui.overlay.views
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -261,6 +262,34 @@ fun PureFloatingControlsPill(
                     Text(
                         text = if (isSafeSearchDisabled) "Safe: OFF" else "Safe: ON",
                         color = if (isSafeSearchDisabled) Color(0xFF00E676) else Color.LightGray,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(3.dp))
+
+                // Plan Indicator Badge (Premium vs Basic)
+                val isPremiumActive by ScrollSearchStateBus.isPremiumActive.collectAsState()
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(
+                            if (isPremiumActive) Color(0x33FFD700)
+                            else Color.White.copy(alpha = 0.15f)
+                        )
+                        .border(
+                            width = if (isPremiumActive) 1.dp else 0.dp,
+                            color = if (isPremiumActive) Color(0xFFFFD700) else Color.Transparent,
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .clickable { ScrollSearchStateBus.togglePlan() }
+                        .padding(horizontal = 5.dp, vertical = 3.dp)
+                        .testTag("f_plan_badge")
+                ) {
+                    Text(
+                        text = if (isPremiumActive) "👑 PREM" else "BÁSICO",
+                        color = if (isPremiumActive) Color(0xFFFFD700) else Color.LightGray,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold
                     )

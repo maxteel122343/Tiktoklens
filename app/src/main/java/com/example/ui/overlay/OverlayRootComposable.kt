@@ -30,6 +30,7 @@ import com.example.data.ScrollSearchStateBus
 import com.example.model.OverlayUiVersion
 import com.example.model.PhotoItem
 import com.example.overlay.FastWebViewManager
+import com.example.ui.overlay.views.PremiumPhotoGridView
 import com.example.ui.overlay.views.PureFloatingControlsPill
 import com.example.ui.theme.DarkSurface
 import com.example.ui.theme.ScrollSearchTheme
@@ -54,6 +55,10 @@ fun OverlayRootComposable(
     val isPhotoDetailOpen by ScrollSearchStateBus.isPhotoDetailOpen.collectAsState()
     val fullscreenImages by ScrollSearchStateBus.fullscreenImages.collectAsState()
     val fullscreenInitialIndex by ScrollSearchStateBus.fullscreenInitialIndex.collectAsState()
+
+    val isPremiumActive by ScrollSearchStateBus.isPremiumActive.collectAsState()
+    val photos by ScrollSearchStateBus.photos.collectAsState()
+    val isLoadingPhotos by ScrollSearchStateBus.isLoadingPhotos.collectAsState()
 
     val capturedBitmap by ScrollSearchStateBus.currentCapturedBitmap.collectAsState()
     val isHistoryDialogOpen by ScrollSearchStateBus.isHistoryDialogOpen.collectAsState()
@@ -141,11 +146,25 @@ fun OverlayRootComposable(
                             }
                         }
 
-                        // Google Images WebView in F mode (Clean pure photos)
-                        AndroidWebViewContainer(
-                            fastWebViewManager = fastWebViewManager,
-                            modifier = Modifier.fillMaxSize()
-                        )
+                        if (isPremiumActive) {
+                            PremiumPhotoGridView(
+                                photos = photos,
+                                isLoading = isLoadingPhotos,
+                                onPhotoClick = { photo ->
+                                    val allUrls = photos.map { it.url }
+                                    val index = photos.indexOf(photo)
+                                    ScrollSearchStateBus.openFullscreenPhoto(photo.url, allUrls, index)
+                                },
+                                onRefresh = { ScrollSearchStateBus.notifyEffectiveQueryChanged() },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            // Google Images WebView in F mode (Clean pure photos)
+                            AndroidWebViewContainer(
+                                fastWebViewManager = fastWebViewManager,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
 
                     // Floating minimalist control pill (version selector, tags, close, minimize)
@@ -235,13 +254,29 @@ fun OverlayRootComposable(
                             )
                         }
 
-                        // Google Images WebView in all V versions!
-                        AndroidWebViewContainer(
-                            fastWebViewManager = fastWebViewManager,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                        )
+                        if (isPremiumActive) {
+                            PremiumPhotoGridView(
+                                photos = photos,
+                                isLoading = isLoadingPhotos,
+                                onPhotoClick = { photo ->
+                                    val allUrls = photos.map { it.url }
+                                    val index = photos.indexOf(photo)
+                                    ScrollSearchStateBus.openFullscreenPhoto(photo.url, allUrls, index)
+                                },
+                                onRefresh = { ScrollSearchStateBus.notifyEffectiveQueryChanged() },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f)
+                            )
+                        } else {
+                            // Google Images WebView in all V versions!
+                            AndroidWebViewContainer(
+                                fastWebViewManager = fastWebViewManager,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f)
+                            )
+                        }
                     }
                 }
             }

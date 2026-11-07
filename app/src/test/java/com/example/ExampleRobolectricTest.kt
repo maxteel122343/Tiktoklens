@@ -85,4 +85,21 @@ class ExampleRobolectricTest {
 
         assertEquals("neymarjr", detected)
     }
+
+    @Test
+    fun `test user plan switching and google custom search config`() {
+        ScrollSearchStateBus.setPlan(com.example.model.UserPlan.BASIC)
+        assertEquals(com.example.model.UserPlan.BASIC, ScrollSearchStateBus.currentPlan.value)
+        org.junit.Assert.assertFalse(ScrollSearchStateBus.isPremiumActive.value)
+
+        ScrollSearchStateBus.setPlan(com.example.model.UserPlan.PREMIUM)
+        assertEquals(com.example.model.UserPlan.PREMIUM, ScrollSearchStateBus.currentPlan.value)
+        assertTrue(ScrollSearchStateBus.isPremiumActive.value)
+
+        ScrollSearchStateBus.togglePlan()
+        assertEquals(com.example.model.UserPlan.BASIC, ScrollSearchStateBus.currentPlan.value)
+        org.junit.Assert.assertFalse(ScrollSearchStateBus.isPremiumActive.value)
+
+        assertEquals("937552ab3e8894f76", com.example.util.GoogleSearchHelper.getGoogleSearchEngineId())
+    }
 }

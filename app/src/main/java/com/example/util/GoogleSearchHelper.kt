@@ -753,4 +753,95 @@ object GoogleSearchHelper {
 
         resultList
     }
+
+    const val DEFAULT_SEARCH_ENGINE_ID = "937552ab3e8894f76"
+
+    fun getGoogleCustomSearchApiKey(): String {
+        val key = try {
+            com.example.BuildConfig.GOOGLE_CUSTOM_SEARCH_API_KEY
+        } catch (_: Throwable) {
+            ""
+        }
+        return if (key.isBlank() || key.contains("your_google_custom_search_api_key")) "" else key
+    }
+
+    fun getGoogleSearchEngineId(): String {
+        val configured = try {
+            com.example.BuildConfig.GOOGLE_SEARCH_ENGINE_ID
+        } catch (_: Throwable) {
+            ""
+        }
+        return if (configured.isNotBlank()) configured else DEFAULT_SEARCH_ENGINE_ID
+    }
+
+    /**
+     * Searches images using Google Custom Search JSON API (Premium Plan).
+     * Endpoint: https://www.googleapis.com/customsearch/v1
+     * Parameters: key, cx, q, searchType=image, num=10
+     */
+    suspend fun fetchGoogleCustomSearchPhotos(
+        query: String,
+        apiKey: String = getGoogleCustomSearchApiKey(),
+        cx: String = getGoogleSearchEngineId(),
+        num: Int = 10
+    ): List<PhotoItem> = withContext(Dispatchers.IO) {
+        val cleanQuery = query.trim().ifBlank { "tiktok creator" }
+        val effectiveKey = apiKey.trim()
+        val effectiveCx = cx.trim().ifBlank { DEFAULT_SEARCH_ENGINE_ID }
+
+        if (effectiveKey.isBlank()) {
+            Log.w(TAG, "Google Custom Search API Key is not configured in secrets.")
+            return@withContext emptyList()
+        }
+
+        val encodedQuery = URLEncoder.encode(cleanQuery, "UTF-8")
+        val effectiveNum = num.coerceIn(1, 10)
+        val url = "https://www.googleapis.com/customsearch/v1?key=$effectiveKey&cx=$effectiveCx&q=$encodedQuery&searchType=image&num=$effectiveNum"
+
+        val resultList = mutableListOf<PhotoItem>()
+        try {
+            val request = Request.Builder()
+                .url(url)
+                .header("Accept", "application/json")
+                .header("User-Agent", "TikTokLens/1.0 (Android)")
+                .build()
+
+            val response = client.newCall(request).execute()
+            val bodyString = response.body?.string().orEmpty()
+
+            if (!response.isSuccessful) {
+                Log.e(TAG, "Google Custom Search API request failed [${response.code}]: $bodyString")
+                return@withContext emptyList()
+            }
+
+            val json = JSONObject(bodyString)
+            val items = json.optJSONArray("items") ?: return@withContext emptyList()
+
+            for (i in 0 until items.length()) {
+                val item = items.optJSONObject(i) ?: continue
+                val title = item.optString("title", "Imagem")
+                val link = item.optString("link") // Direct original high-resolution image URL
+                val displayLink = item.optString("displayLink", "Google Custom Search")
+                val imageObj = item.optJSONObject("image")
+                val width = imageObj?.optInt("width", 800) ?: 800
+                val height = imageObj?.optInt("height", 800) ?: 800
+
+                if (link.isNotBlank() && (link.startsWith("http://") || link.startsWith("https://"))) {
+                    resultList.add(
+                        PhotoItem(
+                            id = "gcs_${cleanQuery.hashCode()}_$i",
+                            url = link,
+                            title = title,
+                            sourceDomain = displayLink,
+                            width = width,
+                            height = height
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception during Google Custom Search API execution: ${e.message}", e)
+        }
+        resultList
+    }
 }

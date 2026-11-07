@@ -122,6 +122,8 @@ fun DashboardScreen(
     val imageQuality by ScrollSearchStateBus.imageQuality.collectAsState()
     val isSaveSearchHistoryEnabled by ScrollSearchStateBus.isSaveSearchHistoryEnabled.collectAsState()
     val searchHistory by ScrollSearchStateBus.searchHistory.collectAsState()
+    val isPremiumActive by ScrollSearchStateBus.isPremiumActive.collectAsState()
+    val currentPlan by ScrollSearchStateBus.currentPlan.collectAsState()
 
     val surfaceColor = if (isDark) DarkSurface else Color.White
     val bgColor = if (isDark) DarkBackground else LightBackground
@@ -251,6 +253,33 @@ fun DashboardScreen(
                                         )
                                     }
                                 }
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                // Plan Mode Indicator Chip (Básico vs Premium)
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isPremiumActive) Color(0x33FFD700) else (if (isDark) DarkSurfaceElevated else Color(0xFFF1F1F4)),
+                                    border = if (isPremiumActive) {
+                                        androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700))
+                                    } else null,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable { ScrollSearchStateBus.togglePlan() }
+                                        .testTag("dashboard_plan_indicator_chip")
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = if (isPremiumActive) "👑 Premium" else "📦 Básico",
+                                            color = if (isPremiumActive) Color(0xFFFFD700) else textMuted,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
                             }
                         }
 
@@ -259,7 +288,7 @@ fun DashboardScreen(
                         // Stats Summary
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             StatBox(
                                 title = "Criador TikTok",
@@ -267,18 +296,30 @@ fun DashboardScreen(
                                 modifier = Modifier.weight(1f)
                             )
                             StatBox(
-                                title = "Vídeos Detectados",
+                                title = "Vídeos",
                                 value = "$detectionCount",
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(0.8f)
                             )
                             StatBox(
-                                title = "Scanner BFS",
-                                value = "35ms (Instant)",
-                                modifier = Modifier.weight(1f)
+                                title = "Plano Ativo",
+                                value = if (isPremiumActive) "👑 Premium" else "📦 Básico",
+                                modifier = Modifier.weight(1.1f)
+                            )
+                            StatBox(
+                                title = "Scanner",
+                                value = "35ms",
+                                modifier = Modifier.weight(0.8f)
                             )
                         }
                     }
                 }
+            }
+
+            // =========================================================================
+            // SEÇÃO DE ESCOLHA DE PLANOS (PLANO BÁSICO VS PLANO PREMIUM)
+            // =========================================================================
+            item {
+                PlanComparisonCard()
             }
 
             // Master Activation Toggle & Permissions

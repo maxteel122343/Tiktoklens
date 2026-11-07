@@ -9,6 +9,8 @@ import com.example.model.OverlayUiVersion
 import com.example.model.PhotoItem
 import com.example.model.SearchEngine
 import com.example.model.SearchType
+import com.example.model.UserPlan
+import com.example.util.GoogleSearchHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -38,6 +40,16 @@ object ScrollSearchStateBus {
 
     private val _selectedSearchEngine = MutableStateFlow(SearchEngine.GOOGLE)
     val selectedSearchEngine: StateFlow<SearchEngine> = _selectedSearchEngine.asStateFlow()
+
+    // Sistema de Planos (Plano Básico vs Plano Premium)
+    private val _currentPlan = MutableStateFlow(UserPlan.BASIC)
+    val currentPlan: StateFlow<UserPlan> = _currentPlan.asStateFlow()
+
+    private val _isPremiumActive = MutableStateFlow(false)
+    val isPremiumActive: StateFlow<Boolean> = _isPremiumActive.asStateFlow()
+
+    private val _customApiKey = MutableStateFlow("")
+    val customApiKey: StateFlow<String> = _customApiKey.asStateFlow()
 
     // Search Type: IMAGES, VIDEOS, ALL_WEB (sites), NEWS
     private val _selectedSearchType = MutableStateFlow(SearchType.IMAGES)
@@ -552,9 +564,60 @@ object ScrollSearchStateBus {
         }
     }
 
+    fun setPlan(plan: UserPlan) {
+        _currentPlan.value = plan
+        _isPremiumActive.value = plan.isPremium
+        notifyEffectiveQueryChanged()
+    }
+
+    fun togglePlan() {
+        val next = if (_currentPlan.value == UserPlan.PREMIUM) UserPlan.BASIC else UserPlan.PREMIUM
+        setPlan(next)
+    }
+
+    fun setPremiumActive(active: Boolean) {
+        val plan = if (active) UserPlan.PREMIUM else UserPlan.BASIC
+        setPlan(plan)
+    }
+
+    fun setCustomApiKey(key: String) {
+        _customApiKey.value = key.trim()
+        if (_isPremiumActive.value) {
+            notifyEffectiveQueryChanged()
+        }
+    }
+
+    fun getEffectiveApiKey(): String {
+        val custom = _customApiKey.value.trim()
+        return if (custom.isNotBlank()) custom else GoogleSearchHelper.getGoogleCustomSearchApiKey()
+    }
+
     fun notifyEffectiveQueryChanged() {
         val query = getEffectiveSearchQuery()
         recordSearch(query)
+        if (_isPremiumActive.value) {
+            scope.launch {
+                _isLoadingPhotos.value = true
+                val apiKey = getEffectiveApiKey()
+                val cx = GoogleSearchHelper.getGoogleSearchEngineId()
+                val apiResults = GoogleSearchHelper.fetchGoogleCustomSearchPhotos(
+                    query = query,
+                    apiKey = apiKey,
+                    cx = cx,
+                    num = 10
+                )
+                if (apiResults.isNotEmpty()) {
+                    _photos.value = apiResults
+                } else if (apiKey.isBlank()) {
+                    // Fallback to Wikipedia / high-res clean photography if API key is pending
+                    val cleanPhotos = GoogleSearchHelper.fetchCleanPhotos(query)
+                    _photos.value = cleanPhotos
+                } else {
+                    _photos.value = emptyList()
+                }
+                _isLoadingPhotos.value = false
+            }
+        }
         onQueryChangedListener?.invoke(query)
     }
 }
