@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -118,6 +119,21 @@ fun SearchBarComponent(
                     }
                     .testTag("clear_search_button")
             )
+            Spacer(modifier = Modifier.width(6.dp))
         }
+
+        Icon(
+            imageVector = androidx.compose.material.icons.Icons.Default.History,
+            contentDescription = "Histórico de pesquisa",
+            tint = Color(0xFFA0A0C0),
+            modifier = Modifier
+                .size(20.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .clickable {
+                    com.example.data.ScrollSearchStateBus.setHistoryDialogOpen(true)
+                }
+                .padding(2.dp)
+                .testTag("open_history_from_searchbar_btn")
+        )
     }
 }

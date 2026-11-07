@@ -56,6 +56,7 @@ fun OverlayRootComposable(
     val fullscreenInitialIndex by ScrollSearchStateBus.fullscreenInitialIndex.collectAsState()
 
     val capturedBitmap by ScrollSearchStateBus.currentCapturedBitmap.collectAsState()
+    val isHistoryDialogOpen by ScrollSearchStateBus.isHistoryDialogOpen.collectAsState()
 
     // Synchronize pure mode CSS when switching between V and F versions
     LaunchedEffect(activeVersion) {
@@ -63,6 +64,15 @@ fun OverlayRootComposable(
     }
 
     ScrollSearchTheme {
+        if (isHistoryDialogOpen) {
+            SearchHistoryDialog(
+                onDismiss = { ScrollSearchStateBus.setHistoryDialogOpen(false) },
+                onSelectSearch = { selectedQuery ->
+                    ScrollSearchStateBus.setSearchBarText(selectedQuery)
+                }
+            )
+        }
+
         if (isBubbleCollapsed) {
             // Minimized floating pill docked to edge
             FloatingBubbleView(

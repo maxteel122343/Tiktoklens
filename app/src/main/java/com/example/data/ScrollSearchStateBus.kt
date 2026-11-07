@@ -1,5 +1,9 @@
 package com.example.data
 
+import android.content.Context
+import com.example.data.db.AppDatabase
+import com.example.data.db.SearchHistoryItem
+import com.example.data.db.SearchHistoryRepository
 import com.example.model.ImageQuality
 import com.example.model.OverlayUiVersion
 import com.example.model.PhotoItem
@@ -11,9 +15,23 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 object ScrollSearchStateBus {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    private var historyRepository: SearchHistoryRepository? = null
+
+    // Option for user to save search history (True by default, can be toggled by user)
+    private val _isSaveSearchHistoryEnabled = MutableStateFlow(true)
+    val isSaveSearchHistoryEnabled: StateFlow<Boolean> = _isSaveSearchHistoryEnabled.asStateFlow()
+
+    private val _searchHistory = MutableStateFlow<List<SearchHistoryItem>>(emptyList())
+    val searchHistory: StateFlow<List<SearchHistoryItem>> = _searchHistory.asStateFlow()
+
+    private val _isHistoryDialogOpen = MutableStateFlow(false)
+    val isHistoryDialogOpen: StateFlow<Boolean> = _isHistoryDialogOpen.asStateFlow()
 
     private val _currentUsername = MutableStateFlow<String?>("khaby.lame")
     val currentUsername: StateFlow<String?> = _currentUsername.asStateFlow()
@@ -474,8 +492,69 @@ object ScrollSearchStateBus {
         return clean.ifEmpty { "tiktok" }
     }
 
+    fun init(context: Context) {
+        if (historyRepository != null) return
+        val db = AppDatabase.getDatabase(context)
+        val repo = SearchHistoryRepository(db.searchHistoryDao())
+        historyRepository = repo
+
+        scope.launch {
+            repo.getRecentHistory(50).collectLatest { list ->
+                _searchHistory.value = list
+            }
+        }
+    }
+
+    fun toggleSaveSearchHistory() {
+        _isSaveSearchHistoryEnabled.value = !_isSaveSearchHistoryEnabled.value
+    }
+
+    fun setSaveSearchHistory(enabled: Boolean) {
+        _isSaveSearchHistoryEnabled.value = enabled
+    }
+
+    fun setHistoryDialogOpen(open: Boolean) {
+        _isHistoryDialogOpen.value = open
+    }
+
+    fun openHistoryDialog() {
+        _isHistoryDialogOpen.value = true
+    }
+
+    fun deleteHistoryItem(id: Long) {
+        scope.launch {
+            historyRepository?.deleteById(id)
+        }
+    }
+
+    fun deleteHistoryItem(item: com.example.data.db.SearchHistoryItem) {
+        deleteHistoryItem(item.id)
+    }
+
+    fun clearSearchHistory() {
+        scope.launch {
+            historyRepository?.clearAll()
+        }
+    }
+
+    fun recordSearch(query: String) {
+        if (!_isSaveSearchHistoryEnabled.value) return
+        val clean = query.trim()
+        if (clean.isBlank()) return
+        scope.launch {
+            historyRepository?.saveSearch(
+                query = query,
+                cleanQuery = clean,
+                engine = _selectedSearchEngine.value.shortName,
+                searchType = _selectedSearchType.value.displayName,
+                creatorUsername = _currentUsername.value
+            )
+        }
+    }
+
     fun notifyEffectiveQueryChanged() {
         val query = getEffectiveSearchQuery()
+        recordSearch(query)
         onQueryChangedListener?.invoke(query)
     }
 }

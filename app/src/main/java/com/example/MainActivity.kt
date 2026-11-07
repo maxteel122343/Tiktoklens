@@ -78,16 +78,56 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun isAccessibilityServiceRunning(): Boolean {
-        val am = getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager ?: return false
-        val enabledServices = am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
-        val tiktokServiceName = "${packageName}/${com.example.service.TikTokAccessibilityService::class.java.name}"
-        val legacyServiceName = "${packageName}/${com.example.service.InstagramAccessibilityService::class.java.name}"
-        return enabledServices.any {
-            it.id.equals(tiktokServiceName, ignoreCase = true) ||
-                    it.id.equals(legacyServiceName, ignoreCase = true) ||
+        // 1. Direct active instance check
+        if (com.example.service.TikTokAccessibilityService.isServiceRunning) {
+            return true
+        }
+
+        // 2. Canonical system setting check (preserves true status across app close/open)
+        try {
+            val accessibilityEnabled = Settings.Secure.getInt(
+                contentResolver,
+                Settings.Secure.ACCESSIBILITY_ENABLED,
+                0
+            )
+            if (accessibilityEnabled == 1) {
+                val settingValue = Settings.Secure.getString(
+                    contentResolver,
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+                )
+                if (!settingValue.isNullOrBlank()) {
+                    val splitter = android.text.TextUtils.SimpleStringSplitter(':')
+                    splitter.setString(settingValue)
+                    while (splitter.hasNext()) {
+                        val accessService = splitter.next()
+                        if (accessService.contains(packageName, ignoreCase = true) &&
+                            (accessService.contains("TikTokAccessibilityService", ignoreCase = true) ||
+                             accessService.contains("InstagramAccessibilityService", ignoreCase = true))
+                        ) {
+                            return true
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {
+        }
+
+        // 3. AccessibilityManager enabled services list check
+        try {
+            val am = getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager ?: return false
+            val enabledServices = am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+                ?: am.getEnabledAccessibilityServiceList(-1)
+            if (enabledServices != null) {
+                return enabledServices.any {
+                    it.id.contains(packageName, ignoreCase = true) ||
                     it.resolveInfo?.serviceInfo?.name?.contains("TikTokAccessibilityService") == true ||
                     it.resolveInfo?.serviceInfo?.name?.contains("InstagramAccessibilityService") == true
+                }
+            }
+        } catch (_: Exception) {
         }
+
+        return false
     }
 
     private fun requestOverlayPermission() {

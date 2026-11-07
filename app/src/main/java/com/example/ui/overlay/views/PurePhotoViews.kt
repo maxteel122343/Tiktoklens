@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.CircularProgressIndicator
@@ -325,6 +326,19 @@ fun PureFloatingControlsPill(
                         imageVector = Icons.AutoMirrored.Filled.Label,
                         contentDescription = "Tags",
                         tint = if (showTagsRow) com.example.ui.theme.TikTokRed else Color.LightGray,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+
+                // History button in pure floating pill
+                IconButton(
+                    onClick = { ScrollSearchStateBus.setHistoryDialogOpen(true) },
+                    modifier = Modifier.size(24.dp).testTag("f_history_button")
+                ) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.History,
+                        contentDescription = "Histórico de Pesquisa",
+                        tint = com.example.ui.theme.TikTokRed,
                         modifier = Modifier.size(14.dp)
                     )
                 }

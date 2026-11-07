@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloseFullscreen
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Language
@@ -387,6 +388,19 @@ fun OverlayHeader(
                         imageVector = if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
                         contentDescription = "Alternar Tema",
                         tint = if (isDark) Color(0xFFFFD600) else Color(0xFF161823),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
+                // History Button
+                IconButton(
+                    onClick = { ScrollSearchStateBus.setHistoryDialogOpen(true) },
+                    modifier = Modifier.size(28.dp).testTag("overlay_history_button")
+                ) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.History,
+                        contentDescription = "Histórico de busca",
+                        tint = TikTokRed,
                         modifier = Modifier.size(16.dp)
                     )
                 }

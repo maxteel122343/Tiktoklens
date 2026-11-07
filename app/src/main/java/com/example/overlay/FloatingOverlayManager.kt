@@ -17,6 +17,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 class FloatingOverlayManager(private val context: Context) {
@@ -143,7 +144,7 @@ class FloatingOverlayManager(private val context: Context) {
 
         // Observe searchType changes (Imagens, Vídeos, Sites, Notícias)
         scope.launch {
-            ScrollSearchStateBus.selectedSearchType.collectLatest { searchType ->
+            ScrollSearchStateBus.selectedSearchType.drop(1).collectLatest { searchType ->
                 val query = ScrollSearchStateBus.getEffectiveSearchQuery()
                 val version = ScrollSearchStateBus.activeVersion.value
                 val quality = ScrollSearchStateBus.imageQuality.value
@@ -158,7 +159,7 @@ class FloatingOverlayManager(private val context: Context) {
 
         // Observe activeVersion changes to switch pure mode CSS and update quality
         scope.launch {
-            ScrollSearchStateBus.activeVersion.collectLatest { version ->
+            ScrollSearchStateBus.activeVersion.drop(1).collectLatest { version ->
                 fastWebViewManager?.setPureMode(version.isCleanPhotoOnly)
                 val query = ScrollSearchStateBus.getEffectiveSearchQuery()
                 val quality = ScrollSearchStateBus.imageQuality.value
@@ -174,7 +175,7 @@ class FloatingOverlayManager(private val context: Context) {
 
         // Observe image quality changes (applied to F versions)
         scope.launch {
-            ScrollSearchStateBus.imageQuality.collectLatest { quality ->
+            ScrollSearchStateBus.imageQuality.drop(1).collectLatest { quality ->
                 val version = ScrollSearchStateBus.activeVersion.value
                 if (version.isCleanPhotoOnly) {
                     val query = ScrollSearchStateBus.getEffectiveSearchQuery()

@@ -39,6 +39,11 @@ class Base64Fetcher(private val dataUri: String, private val options: Options) :
 
 class MainApplication : Application(), ImageLoaderFactory {
 
+    override fun onCreate() {
+        super.onCreate()
+        com.example.data.ScrollSearchStateBus.init(this)
+    }
+
     override fun newImageLoader(): ImageLoader {
         val okHttpClient = OkHttpClient.Builder()
             .connectTimeout(12, TimeUnit.SECONDS)

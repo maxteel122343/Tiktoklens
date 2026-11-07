@@ -43,7 +43,7 @@ object GoogleSearchHelper {
                 val safeParam = if (isSafeSearchDisabled) "&safe=off" else "&safe=active"
                 when (searchType) {
                     com.example.model.SearchType.IMAGES ->
-                        "https://www.google.com/search?q=$encoded&udm=2&hl=pt-BR&gl=br$safeParam$effectiveQuality"
+                        "https://www.google.com/search?q=$encoded&tbm=isch&hl=pt-BR&gl=br$safeParam$effectiveQuality"
                     com.example.model.SearchType.VIDEOS ->
                         "https://www.google.com/search?q=$encoded&tbm=vid&hl=pt-BR&gl=br$safeParam"
                     com.example.model.SearchType.ALL_WEB ->
@@ -140,9 +140,16 @@ object GoogleSearchHelper {
                         color: #FFFFFF !important;
                         padding-top: 0px !important;
                         margin: 0px !important;
+                        -webkit-overflow-scrolling: touch !important;
+                        touch-action: pan-y !important;
+                        overflow-y: auto !important;
                     }
                     img {
                         border-radius: 8px !important;
+                        content-visibility: auto !important;
+                        contain-intrinsic-size: 200px 200px !important;
+                        transform: translateZ(0) !important;
+                        -webkit-transform: translateZ(0) !important;
                     }
                 `;
 
@@ -192,13 +199,22 @@ object GoogleSearchHelper {
                         padding: 0px !important;
                         margin: 0px !important;
                         overflow-x: hidden !important;
+                        overflow-y: auto !important;
+                        -webkit-overflow-scrolling: touch !important;
+                        touch-action: pan-y !important;
                     }
                     img {
                         border-radius: 12px !important;
+                        content-visibility: auto !important;
+                        contain-intrinsic-size: 200px 250px !important;
+                        transform: translateZ(0) !important;
+                        -webkit-transform: translateZ(0) !important;
                     }
-                    .isv-r, .tile--img, .img_cont {
+                    .isv-r, .tile--img, .img_cont, .iusc, .grid-item {
                         border-radius: 12px !important;
                         margin: 4px !important;
+                        contain: layout paint !important;
+                        transform: translateZ(0) !important;
                     }
                 `;
 
@@ -251,7 +267,8 @@ object GoogleSearchHelper {
                         padding: 0px !important;
                         margin: 0px !important;
                         overflow-x: hidden !important;
-                        scroll-snap-type: y mandatory !important;
+                        -webkit-overflow-scrolling: touch !important;
+                        scroll-behavior: smooth !important;
                     }
                     /* Force parent image containers to a single vertical column */
                     #islrg, .islrc, .z75nLe, div[jsname="GZIdke"], .results--images, .zmg, .dg_u, .b_focusTextExtra, .serp__results, .layout-images, .b_canvas, #b_content, #b_results {
@@ -264,22 +281,20 @@ object GoogleSearchHelper {
                         padding: 0 !important;
                         margin: 0 !important;
                     }
-                    /* Mode F7: Exactly ONE image card filling the display per screen */
+                    /* Mode F7: Large image card filling the display cleanly with fluid scrolling */
                     div[data-ri], .isv-r, .grid-item, .img_cont, .serp__item, div[jsname="r5xl4"], .tile--img, .iusc, .iuscp {
                         width: 100vw !important;
                         max-width: 100vw !important;
                         min-width: 100vw !important;
-                        height: 90vh !important;
-                        min-height: 90vh !important;
-                        max-height: 90vh !important;
-                        margin: 0px 0px 12px 0px !important;
+                        height: 85vh !important;
+                        min-height: 85vh !important;
+                        max-height: 85vh !important;
+                        margin: 0px 0px 16px 0px !important;
                         padding: 6px !important;
                         box-sizing: border-box !important;
                         display: flex !important;
                         align-items: center !important;
                         justify-content: center !important;
-                        scroll-snap-align: center !important;
-                        scroll-snap-stop: always !important;
                         position: relative !important;
                         float: none !important;
                         clear: both !important;
@@ -288,7 +303,7 @@ object GoogleSearchHelper {
                         width: 100% !important;
                         height: 100% !important;
                         max-width: 100vw !important;
-                        max-height: 86vh !important;
+                        max-height: 82vh !important;
                         object-fit: contain !important;
                         border-radius: 16px !important;
                     }
@@ -523,29 +538,50 @@ object GoogleSearchHelper {
                         }
                     }
 
-                    attachButtons();
+                    var isAttaching = false;
+                    function safeAttachButtons() {
+                        if (isAttaching) return;
+                        isAttaching = true;
+                        try {
+                            attachButtons();
+                        } finally {
+                            setTimeout(function() { isAttaching = false; }, 60);
+                        }
+                    }
+
+                    safeAttachButtons();
 
                     if (!window.__scrollsearchObserverInstalled) {
                         window.__scrollsearchObserverInstalled = true;
                         var isQueued = false;
                         var throttledAttach = function() {
-                            if (isQueued) return;
+                            if (isQueued || isAttaching) return;
                             isQueued = true;
                             window.requestAnimationFrame(function() {
-                                attachButtons();
+                                safeAttachButtons();
                                 isQueued = false;
                             });
                         };
 
-                        var observer = new MutationObserver(function() {
-                            throttledAttach();
+                        var observer = new MutationObserver(function(mutations) {
+                            if (isAttaching) return;
+                            var shouldTrigger = false;
+                            for (var m = 0; m < mutations.length; m++) {
+                                var target = mutations[m].target;
+                                if (target && !(target.classList && target.classList.contains('scrollsearch-btn-container'))) {
+                                    shouldTrigger = true;
+                                    break;
+                                }
+                            }
+                            if (shouldTrigger) throttledAttach();
                         });
                         observer.observe(document.body, { childList: true, subtree: true });
 
                         var scrollDebounce = null;
                         window.addEventListener('scroll', function() {
                             if (scrollDebounce) clearTimeout(scrollDebounce);
-                            scrollDebounce = setTimeout(throttledAttach, 160);
+                            // Only run after scroll is completely finished to keep 60fps scrolling
+                            scrollDebounce = setTimeout(safeAttachButtons, 350);
                         }, { passive: true });
                     }
                 } catch(e) {}

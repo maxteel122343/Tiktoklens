@@ -41,6 +41,10 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Search
+import com.example.data.db.SearchHistoryItem
 import com.example.model.SearchEngine
 import com.example.model.SocialPlatform
 import androidx.compose.material3.Button
@@ -116,6 +120,8 @@ fun DashboardScreen(
     val detectionCount by ScrollSearchStateBus.detectionCount.collectAsState()
     val isTikTokForeground by ScrollSearchStateBus.isTikTokForeground.collectAsState()
     val imageQuality by ScrollSearchStateBus.imageQuality.collectAsState()
+    val isSaveSearchHistoryEnabled by ScrollSearchStateBus.isSaveSearchHistoryEnabled.collectAsState()
+    val searchHistory by ScrollSearchStateBus.searchHistory.collectAsState()
 
     val surfaceColor = if (isDark) DarkSurface else Color.White
     val bgColor = if (isDark) DarkBackground else LightBackground
@@ -923,6 +929,202 @@ fun DashboardScreen(
                                     ),
                                     modifier = Modifier.testTag("pip_video_toggle_switch")
                                 )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Histórico de Pesquisas Card
+            item {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = surfaceColor),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("search_history_dashboard_card")
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(CircleShape)
+                                        .background(TikTokCyan.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.History,
+                                        contentDescription = "Histórico",
+                                        tint = TikTokCyan,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Column {
+                                    Text(
+                                        text = "Histórico de Pesquisas",
+                                        color = textColor,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = if (isSaveSearchHistoryEnabled) "Salvar histórico ativado" else "Gravação desativada",
+                                        color = if (isSaveSearchHistoryEnabled) TikTokCyan else textMuted,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Switch(
+                                    checked = isSaveSearchHistoryEnabled,
+                                    onCheckedChange = { ScrollSearchStateBus.toggleSaveSearchHistory() },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = TikTokCyan,
+                                        checkedTrackColor = TikTokCyan.copy(alpha = 0.4f)
+                                    ),
+                                    modifier = Modifier.testTag("save_history_toggle_switch")
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text(
+                            text = if (isSaveSearchHistoryEnabled)
+                                "Suas pesquisas recentes ficam gravadas com segurança no dispositivo para acesso rápido."
+                            else
+                                "A opção de salvar histórico está desativada. As novas buscas não serão guardadas.",
+                            color = textMuted,
+                            fontSize = 12.sp
+                        )
+
+                        if (searchHistory.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Recentes (${searchHistory.size})",
+                                    color = textColor,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    OutlinedButton(
+                                        onClick = { ScrollSearchStateBus.openHistoryDialog() },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(30.dp)
+                                    ) {
+                                        Text("Ver todos", fontSize = 11.sp, color = TikTokCyan)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = { ScrollSearchStateBus.clearSearchHistory() },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(30.dp)
+                                    ) {
+                                        Text("Limpar", fontSize = 11.sp, color = TikTokRed)
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            val recentItems = searchHistory.take(5)
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                recentItems.forEach { item ->
+                                    val dateStr = remember(item.timestamp) {
+                                        val sdf = java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.getDefault())
+                                        sdf.format(java.util.Date(item.timestamp))
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isDark) DarkSurfaceElevated else Color(0xFFF5F5FA),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .clickable {
+                                                ScrollSearchStateBus.setSearchBarText(item.query)
+                                                if (!isOverlayActive && isOverlayPermissionGranted) {
+                                                    try {
+                                                        val intent = Intent(context, FloatingOverlayService::class.java)
+                                                        context.startForegroundService(intent)
+                                                    } catch (_: Exception) {}
+                                                }
+                                            }
+                                            .testTag("dashboard_history_item_${item.id}")
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Search,
+                                                    contentDescription = null,
+                                                    tint = TikTokCyan,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = item.query,
+                                                        color = textColor,
+                                                        fontSize = 13.sp,
+                                                        fontWeight = FontWeight.Medium,
+                                                        maxLines = 1
+                                                    )
+                                                    Row(
+                                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            text = item.searchEngine,
+                                                            color = TikTokCyan,
+                                                            fontSize = 10.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                        Text(
+                                                            text = "• $dateStr",
+                                                            color = textMuted,
+                                                            fontSize = 10.sp
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            IconButton(
+                                                onClick = { ScrollSearchStateBus.deleteHistoryItem(item) },
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "Remover",
+                                                    tint = textMuted,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

@@ -119,4 +119,46 @@ class ExampleUnitTest {
     com.example.data.ScrollSearchStateBus.selectSocialPlatform(com.example.model.SocialPlatform.TIKTOK)
     assertEquals(com.example.model.SocialPlatform.TIKTOK, com.example.data.ScrollSearchStateBus.selectedPlatform.value)
   }
+
+  @Test
+  fun `test save search history toggle in state bus`() {
+    com.example.data.ScrollSearchStateBus.setSaveSearchHistory(true)
+    assertTrue(com.example.data.ScrollSearchStateBus.isSaveSearchHistoryEnabled.value)
+
+    com.example.data.ScrollSearchStateBus.toggleSaveSearchHistory()
+    assertFalse(com.example.data.ScrollSearchStateBus.isSaveSearchHistoryEnabled.value)
+
+    com.example.data.ScrollSearchStateBus.toggleSaveSearchHistory()
+    assertTrue(com.example.data.ScrollSearchStateBus.isSaveSearchHistoryEnabled.value)
+  }
+
+  @Test
+  fun `test search history dialog open state`() {
+    com.example.data.ScrollSearchStateBus.setHistoryDialogOpen(false)
+    assertFalse(com.example.data.ScrollSearchStateBus.isHistoryDialogOpen.value)
+
+    com.example.data.ScrollSearchStateBus.openHistoryDialog()
+    assertTrue(com.example.data.ScrollSearchStateBus.isHistoryDialogOpen.value)
+
+    com.example.data.ScrollSearchStateBus.setHistoryDialogOpen(false)
+    assertFalse(com.example.data.ScrollSearchStateBus.isHistoryDialogOpen.value)
+  }
+
+  @Test
+  fun `test search history item creation`() {
+    val item = com.example.data.db.SearchHistoryItem(
+        id = 1L,
+        query = "lorena maria",
+        cleanQuery = "lorena maria",
+        searchEngine = "Google",
+        searchType = "Fotos",
+        creatorUsername = "@lorenamaria"
+    )
+    assertEquals(1L, item.id)
+    assertEquals("lorena maria", item.query)
+    assertEquals("Google", item.searchEngine)
+    assertEquals("Fotos", item.searchType)
+    assertEquals("@lorenamaria", item.creatorUsername)
+    assertTrue(item.timestamp > 0)
+  }
 }

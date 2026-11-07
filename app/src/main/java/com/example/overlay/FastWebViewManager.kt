@@ -228,6 +228,10 @@ class FastWebViewManager(private val context: Context) {
                 )
                 setLayerType(View.LAYER_TYPE_HARDWARE, null)
                 setBackgroundColor(0xFF12121E.toInt())
+                isVerticalScrollBarEnabled = true
+                isHorizontalScrollBarEnabled = false
+                scrollBarStyle = View.SCROLLBARS_INSIDE_OVERLAY
+                overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
 
                 // 1. Enable cookies and inject Google & DuckDuckGo cookies
                 val cookieManager = CookieManager.getInstance()
@@ -248,7 +252,6 @@ class FastWebViewManager(private val context: Context) {
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
-                    databaseEnabled = true
                     cacheMode = WebSettings.LOAD_DEFAULT
                     useWideViewPort = true
                     loadWithOverviewMode = true
@@ -258,6 +261,13 @@ class FastWebViewManager(private val context: Context) {
                     loadsImagesAutomatically = true
                     mediaPlaybackRequiresUserGesture = false
                     mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+
+                    // Enable pre-rastering for 60/120fps smooth scrolling without stutter
+                    if (WebViewFeature.isFeatureSupported(WebViewFeature.OFF_SCREEN_PRERASTER)) {
+                        try {
+                            WebSettingsCompat.setOffscreenPreRaster(this, true)
+                        } catch (_: Exception) {}
+                    }
 
                     // Clean Chrome User-Agent without WebView markers
                     userAgentString = "Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
@@ -366,6 +376,25 @@ class FastWebViewManager(private val context: Context) {
         return webView
     }
 
+    fun getOrCreateWebView(ctx: Context? = null): WebView {
+        if (webView == null) {
+            initWebView()
+        }
+        return webView ?: WebView(ctx ?: context).also { webView = it }
+    }
+
+    fun scrollDownFast(amountDp: Int = 450) {
+        val wv = webView ?: return
+        val density = wv.resources.displayMetrics.density
+        val px = (amountDp * density).toInt()
+        wv.evaluateJavascript("window.scrollBy({ top: $px, behavior: 'smooth' });", null)
+    }
+
+    fun scrollToTopFast() {
+        val wv = webView ?: return
+        wv.evaluateJavascript("window.scrollTo({ top: 0, behavior: 'smooth' });", null)
+    }
+
     /**
      * Loads the search query using the selected engine.
      * When isPure is true (versions F), applies qualityParam to search for specific resolution/quality on Google.
@@ -395,7 +424,6 @@ class FastWebViewManager(private val context: Context) {
                 cookieManager.setCookie("https://www.google.com", "safe=active; domain=.google.com; path=/; SameSite=None; Secure")
                 cookieManager.setCookie("https://search.yahoo.com", "sB=vm=r; domain=.yahoo.com; path=/; SameSite=None; Secure")
             }
-            cookieManager.flush()
         } catch (e: Exception) {
             Log.w("FastWebViewManager", "Failed to update cookies: ${e.message}")
         }

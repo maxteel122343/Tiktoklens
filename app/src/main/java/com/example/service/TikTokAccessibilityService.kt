@@ -16,6 +16,14 @@ open class TikTokAccessibilityService : AccessibilityService() {
         private const val TAG = "SocialLensDetector"
         private const val THROTTLE_MS = 25L
 
+        @Volatile
+        var isServiceRunning = false
+            private set
+
+        @Volatile
+        var serviceInstance: TikTokAccessibilityService? = null
+            private set
+
         // Known resource IDs across TikTok, Instagram, Facebook, YouTube Shorts, and Bluesky
         private val TARGET_VIEW_IDS = listOf(
             // TikTok
@@ -76,6 +84,13 @@ open class TikTokAccessibilityService : AccessibilityService() {
         )
     }
 
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        isServiceRunning = true
+        serviceInstance = this
+        Log.d(TAG, "TikTokAccessibilityService connected successfully")
+    }
+
     private val debounceHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var pendingScanRunnable: Runnable? = null
     private var lastScanTime = 0L
@@ -93,7 +108,6 @@ open class TikTokAccessibilityService : AccessibilityService() {
             if (root != null) {
                 val rootPkg = root.packageName?.toString() ?: ""
                 platform = SocialPlatform.fromPackage(rootPkg)
-                root.recycle()
             }
         }
 
@@ -113,7 +127,7 @@ open class TikTokAccessibilityService : AccessibilityService() {
         val elapsed = now - lastScanTime
         val activePlatform = platform
 
-        if (elapsed >= 150L) {
+        if (elapsed >= 200L) {
             pendingScanRunnable?.let { debounceHandler.removeCallbacks(it) }
             pendingScanRunnable = null
             lastScanTime = now
@@ -125,7 +139,7 @@ open class TikTokAccessibilityService : AccessibilityService() {
                 scanActiveWindowForUsername(activePlatform)
             }
             pendingScanRunnable = runnable
-            debounceHandler.postDelayed(runnable, 150L - elapsed)
+            debounceHandler.postDelayed(runnable, 200L - elapsed)
         }
     }
 
@@ -135,9 +149,9 @@ open class TikTokAccessibilityService : AccessibilityService() {
         val rootNode = rootInActiveWindow
         if (rootNode != null) {
             try {
-                detected = extractUsernameFast(rootNode, maxNodes = 800)
-            } finally {
-                rootNode.recycle()
+                detected = extractUsernameFast(rootNode, maxNodes = 400)
+            } catch (e: Exception) {
+                Log.w(TAG, "Error during rootNode traversal: ${e.message}")
             }
         }
 
@@ -147,14 +161,10 @@ open class TikTokAccessibilityService : AccessibilityService() {
                 if (windowList != null) {
                     for (window in windowList) {
                         val wRoot = window.root ?: continue
-                        try {
-                            val wPkg = wRoot.packageName?.toString() ?: ""
-                            if (SocialPlatform.fromPackage(wPkg) == platform) {
-                                detected = extractUsernameFast(wRoot, maxNodes = 350)
-                                if (!detected.isNullOrBlank()) break
-                            }
-                        } finally {
-                            wRoot.recycle()
+                        val wPkg = wRoot.packageName?.toString() ?: ""
+                        if (SocialPlatform.fromPackage(wPkg) == platform) {
+                            detected = extractUsernameFast(wRoot, maxNodes = 250)
+                            if (!detected.isNullOrBlank()) break
                         }
                     }
                 }
@@ -294,6 +304,8 @@ open class TikTokAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        isServiceRunning = false
+        serviceInstance = null
         ScrollSearchStateBus.setTikTokForeground(false)
     }
 }
