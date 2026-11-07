@@ -50,6 +50,8 @@ fun SearchBarComponent(
     val bgColor = if (isDark) DarkSurfaceElevated else Color(0xFFF1F1F4)
     val textStyleColor = if (isDark) Color.White else com.example.ui.theme.TikTokDarkText
 
+    val isPremiumActive = com.example.data.ScrollSearchStateBus.isPremiumActive.collectAsState().value
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -62,12 +64,35 @@ fun SearchBarComponent(
     ) {
         Icon(
             imageVector = Icons.Default.Search,
-            contentDescription = "Ícone de busca",
-            tint = IgPink,
-            modifier = Modifier.size(16.dp)
+            contentDescription = "Buscar imagens",
+            tint = if (isPremiumActive) Color(0xFFFFD700) else IgPink,
+            modifier = Modifier
+                .size(18.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .clickable {
+                    focusManager.clearFocus()
+                    onSearchSubmitted(query)
+                }
+                .testTag("search_icon_button")
         )
 
-        Spacer(modifier = Modifier.width(6.dp))
+        Spacer(modifier = Modifier.width(4.dp))
+
+        // Mode badge inside search bar (👑 Premium vs 📦 Básico)
+        androidx.compose.material3.Surface(
+            shape = RoundedCornerShape(6.dp),
+            color = if (isPremiumActive) Color(0x33FFD700) else Color(0x22888888),
+            border = if (isPremiumActive) androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFFFD700)) else null,
+            modifier = Modifier.padding(end = 4.dp)
+        ) {
+            Text(
+                text = if (isPremiumActive) "👑 PREM" else "BÁSICO",
+                color = if (isPremiumActive) Color(0xFFFFD700) else Color.Gray,
+                fontSize = 9.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+            )
+        }
 
         BasicTextField(
             value = query,
@@ -76,7 +101,7 @@ fun SearchBarComponent(
                 color = textStyleColor,
                 fontSize = 12.sp
             ),
-            cursorBrush = SolidColor(IgPink),
+            cursorBrush = SolidColor(if (isPremiumActive) Color(0xFFFFD700) else IgPink),
             keyboardOptions = KeyboardOptions(
                 imeAction = ImeAction.Search
             ),
@@ -121,6 +146,29 @@ fun SearchBarComponent(
             )
             Spacer(modifier = Modifier.width(6.dp))
         }
+
+        // Dedicated search action button
+        androidx.compose.material3.Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = if (isPremiumActive) Color(0xFFFFD700) else IgPink,
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable {
+                    focusManager.clearFocus()
+                    onSearchSubmitted(query)
+                }
+                .testTag("submit_search_action_button")
+        ) {
+            Text(
+                text = "Buscar",
+                color = if (isPremiumActive) Color.Black else Color.White,
+                fontSize = 11.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(6.dp))
 
         Icon(
             imageVector = androidx.compose.material.icons.Icons.Default.History,

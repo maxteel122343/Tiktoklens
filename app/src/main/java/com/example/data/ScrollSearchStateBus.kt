@@ -41,11 +41,11 @@ object ScrollSearchStateBus {
     private val _selectedSearchEngine = MutableStateFlow(SearchEngine.GOOGLE)
     val selectedSearchEngine: StateFlow<SearchEngine> = _selectedSearchEngine.asStateFlow()
 
-    // Sistema de Planos (Plano Básico vs Plano Premium)
-    private val _currentPlan = MutableStateFlow(UserPlan.BASIC)
+    // Sistema de Planos (Plano Básico vs Plano Premium) - Inicia em Premium por padrão
+    private val _currentPlan = MutableStateFlow(UserPlan.PREMIUM)
     val currentPlan: StateFlow<UserPlan> = _currentPlan.asStateFlow()
 
-    private val _isPremiumActive = MutableStateFlow(false)
+    private val _isPremiumActive = MutableStateFlow(true)
     val isPremiumActive: StateFlow<Boolean> = _isPremiumActive.asStateFlow()
 
     private val _customApiKey = MutableStateFlow("")
@@ -397,8 +397,15 @@ object ScrollSearchStateBus {
         }
     }
 
-    fun setSearchBarText(text: String) {
+    fun setSearchBarText(text: String, executeSearch: Boolean = false) {
         _searchBarText.value = text
+        if (executeSearch) {
+            notifyEffectiveQueryChanged()
+        }
+    }
+
+    fun submitSearch(query: String = _searchBarText.value) {
+        _searchBarText.value = query
         notifyEffectiveQueryChanged()
     }
 
@@ -510,7 +517,21 @@ object ScrollSearchStateBus {
         return clean.ifEmpty { "tiktok" }
     }
 
+    private var sharedPreferences: android.content.SharedPreferences? = null
+
     fun init(context: Context) {
+        if (sharedPreferences == null) {
+            val prefs = context.getSharedPreferences("scrollsearch_prefs", Context.MODE_PRIVATE)
+            sharedPreferences = prefs
+            val savedPlanName = prefs.getString("user_plan", UserPlan.PREMIUM.name)
+            val restoredPlan = try {
+                UserPlan.valueOf(savedPlanName ?: UserPlan.PREMIUM.name)
+            } catch (_: Exception) {
+                UserPlan.PREMIUM
+            }
+            _currentPlan.value = restoredPlan
+            _isPremiumActive.value = restoredPlan.isPremium
+        }
         if (historyRepository != null) return
         val db = AppDatabase.getDatabase(context)
         val repo = SearchHistoryRepository(db.searchHistoryDao())
@@ -573,6 +594,7 @@ object ScrollSearchStateBus {
     fun setPlan(plan: UserPlan) {
         _currentPlan.value = plan
         _isPremiumActive.value = plan.isPremium
+        sharedPreferences?.edit()?.putString("user_plan", plan.name)?.apply()
         notifyEffectiveQueryChanged()
     }
 
