@@ -101,5 +101,9 @@ class ExampleRobolectricTest {
         org.junit.Assert.assertFalse(ScrollSearchStateBus.isPremiumActive.value)
 
         assertEquals("937552ab3e8894f76", com.example.util.GoogleSearchHelper.getGoogleSearchEngineId())
+
+        val rawUserUrl = "https://www.googleapis.com/customsearch/v1?key=AIzaSyAr86OnFsO5g8PBNqUfE-qZzvw6SZ1Vm90cx=937552ab3e8894f76&q=charli+damelio&searchType=image&num=10"
+        assertEquals("AIzaSyAr86OnFsO5g8PBNqUfE-qZzvw6SZ1Vm90", com.example.util.GoogleSearchHelper.sanitizeApiKey(rawUserUrl))
+        assertEquals("937552ab3e8894f76", com.example.util.GoogleSearchHelper.sanitizeCx(rawUserUrl))
     }
 }

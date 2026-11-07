@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -73,6 +74,8 @@ fun PremiumPhotoGridView(
     val query = ScrollSearchStateBus.getEffectiveSearchQuery()
     val isDark by ScrollSearchStateBus.isDarkTheme.collectAsState()
     val apiKey = ScrollSearchStateBus.getEffectiveApiKey()
+    val lastCustomSearchError by ScrollSearchStateBus.lastCustomSearchError.collectAsState()
+    val isUsingFallback by ScrollSearchStateBus.isUsingFallback.collectAsState()
 
     Column(
         modifier = modifier
@@ -108,7 +111,9 @@ fun PremiumPhotoGridView(
                             letterSpacing = 0.3.sp
                         )
                         Text(
-                            text = if (photos.isNotEmpty()) "${photos.size} resultados originais • Sem Captcha" else "Custom Search JSON API",
+                            text = if (photos.isNotEmpty()) {
+                                if (isUsingFallback) "${photos.size} fotos em alta qualidade (Backup)" else "${photos.size} resultados originais • Sem Captcha"
+                            } else "Custom Search JSON API",
                             color = Color(0xFFFFECB3),
                             fontSize = 9.sp
                         )
@@ -127,6 +132,38 @@ fun PremiumPhotoGridView(
                             modifier = Modifier.size(16.dp)
                         )
                     }
+                }
+            }
+        }
+
+        if (lastCustomSearchError != null) {
+            Surface(
+                color = Color(0x33FF9800),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF9800).copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = Color(0xFFFFB74D),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (lastCustomSearchError!!.contains("ativada")) "Ative a 'Custom Search API' no Google Cloud Console para sua chave. Exibindo fotos em HD via fallback!" else lastCustomSearchError!!,
+                        color = Color(0xFFFFE0B2),
+                        fontSize = 10.sp,
+                        lineHeight = 13.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }

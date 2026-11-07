@@ -1,5 +1,7 @@
 package com.example.ui.dashboard
 
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -9,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -97,6 +100,8 @@ fun PlanComparisonCard(
     val effectiveKey = ScrollSearchStateBus.getEffectiveApiKey()
     val isLoadingPhotos by ScrollSearchStateBus.isLoadingPhotos.collectAsState()
     val photos by ScrollSearchStateBus.photos.collectAsState()
+    val lastCustomSearchError by ScrollSearchStateBus.lastCustomSearchError.collectAsState()
+    val isUsingFallback by ScrollSearchStateBus.isUsingFallback.collectAsState()
 
     var showApiSettings by remember { mutableStateOf(false) }
     var apiKeyInput by remember(customKey) { mutableStateOf(customKey) }
@@ -797,11 +802,68 @@ fun PlanComparisonCard(
                         }
                     }
 
+                    if (lastCustomSearchError != null) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0x33FF9800),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF9800).copy(alpha = 0.6f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = Color(0xFFFFB74D),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Status da Google Custom Search API",
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFFFE0B2),
+                                        fontSize = 12.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = lastCustomSearchError ?: "",
+                                    color = Color(0xFFFFE0B2),
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp
+                                )
+                                if (lastCustomSearchError!!.contains("ativada") || lastCustomSearchError!!.contains("PERMISSION_DENIED")) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Button(
+                                        onClick = {
+                                            try {
+                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://console.cloud.google.com/apis/library/customsearch.googleapis.com"))
+                                                context.startActivity(intent)
+                                            } catch (_: Exception) {}
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB74D)),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            text = "Ativar Custom Search API no Google Cloud ↗",
+                                            color = Color.Black,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     if (photos.isNotEmpty() && isPremiumActive) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "✓ ${photos.size} fotos encontradas via Google Custom Search API",
-                            color = Color(0xFF00E676),
+                            text = if (isUsingFallback) "✓ ${photos.size} fotos em alta qualidade carregadas (Modo Backup)" else "✓ ${photos.size} fotos encontradas via Google Custom Search API",
+                            color = if (isUsingFallback) TikTokCyan else Color(0xFF00E676),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )

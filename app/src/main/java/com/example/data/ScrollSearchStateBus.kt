@@ -51,6 +51,12 @@ object ScrollSearchStateBus {
     private val _customApiKey = MutableStateFlow("")
     val customApiKey: StateFlow<String> = _customApiKey.asStateFlow()
 
+    private val _lastCustomSearchError = MutableStateFlow<String?>(null)
+    val lastCustomSearchError: StateFlow<String?> = _lastCustomSearchError.asStateFlow()
+
+    private val _isUsingFallback = MutableStateFlow(false)
+    val isUsingFallback: StateFlow<Boolean> = _isUsingFallback.asStateFlow()
+
     // Search Type: IMAGES, VIDEOS, ALL_WEB (sites), NEWS
     private val _selectedSearchType = MutableStateFlow(SearchType.IMAGES)
     val selectedSearchType: StateFlow<SearchType> = _selectedSearchType.asStateFlow()
@@ -587,9 +593,15 @@ object ScrollSearchStateBus {
         }
     }
 
+    fun setCustomSearchError(error: String?, usingFallback: Boolean = false) {
+        _lastCustomSearchError.value = error
+        _isUsingFallback.value = usingFallback
+    }
+
     fun getEffectiveApiKey(): String {
         val custom = _customApiKey.value.trim()
-        return if (custom.isNotBlank()) custom else GoogleSearchHelper.getGoogleCustomSearchApiKey()
+        val raw = if (custom.isNotBlank()) custom else GoogleSearchHelper.getGoogleCustomSearchApiKey()
+        return GoogleSearchHelper.sanitizeApiKey(raw)
     }
 
     fun notifyEffectiveQueryChanged() {
@@ -598,22 +610,29 @@ object ScrollSearchStateBus {
         if (_isPremiumActive.value) {
             scope.launch {
                 _isLoadingPhotos.value = true
-                val apiKey = getEffectiveApiKey()
-                val cx = GoogleSearchHelper.getGoogleSearchEngineId()
+                val rawApiKey = _customApiKey.value.trim().ifBlank { GoogleSearchHelper.getGoogleCustomSearchApiKey() }
+                val sanitizedKey = GoogleSearchHelper.sanitizeApiKey(rawApiKey)
+                val rawCx = GoogleSearchHelper.getGoogleSearchEngineId()
+                val sanitizedCx = GoogleSearchHelper.sanitizeCx(rawApiKey, rawCx)
+
                 val apiResults = GoogleSearchHelper.fetchGoogleCustomSearchPhotos(
                     query = query,
-                    apiKey = apiKey,
-                    cx = cx,
+                    apiKey = sanitizedKey,
+                    cx = sanitizedCx,
                     num = 10
                 )
                 if (apiResults.isNotEmpty()) {
                     _photos.value = apiResults
-                } else if (apiKey.isBlank()) {
-                    // Fallback to Wikipedia / high-res clean photography if API key is pending
+                    _isUsingFallback.value = false
+                    _lastCustomSearchError.value = null
+                } else {
+                    // Fallback to Wikipedia / high-res clean photography so the user always sees photos!
                     val cleanPhotos = GoogleSearchHelper.fetchCleanPhotos(query)
                     _photos.value = cleanPhotos
-                } else {
-                    _photos.value = emptyList()
+                    _isUsingFallback.value = true
+                    if (sanitizedKey.isBlank()) {
+                        _lastCustomSearchError.value = "Chave de API não informada."
+                    }
                 }
                 _isLoadingPhotos.value = false
             }

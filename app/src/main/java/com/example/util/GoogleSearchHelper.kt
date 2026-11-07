@@ -756,13 +756,41 @@ object GoogleSearchHelper {
 
     const val DEFAULT_SEARCH_ENGINE_ID = "937552ab3e8894f76"
 
+    fun sanitizeApiKey(raw: String): String {
+        val trimmed = raw.trim().removeSurrounding("\"").removeSurrounding("'")
+        if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.contains("key=") || trimmed.contains("cx=")) {
+            val aizaMatch = Regex("(AIza[a-zA-Z0-9_-]{35})").find(trimmed)
+            if (aizaMatch != null) {
+                return aizaMatch.value
+            }
+            val keyParam = Regex("[?&]key=([a-zA-Z0-9_-]+?)(?:[&;]|cx=|$)").find(trimmed)
+                ?: Regex("key=([a-zA-Z0-9_-]+?)(?:[&;]|cx=|$)").find(trimmed)
+            if (keyParam != null) {
+                return keyParam.groupValues[1]
+            }
+        }
+        return if (trimmed.contains("your_google_custom_search_api_key")) "" else trimmed
+    }
+
+    fun sanitizeCx(raw: String, fallback: String = DEFAULT_SEARCH_ENGINE_ID): String {
+        val trimmed = raw.trim().removeSurrounding("\"").removeSurrounding("'")
+        if (trimmed.contains("cx=")) {
+            val cxParam = Regex("(?:[?&]|cx=)([a-zA-Z0-9_-]+)").find(trimmed)
+            val match = Regex("cx=([a-zA-Z0-9:_-]+?)(?:[&;]|$)").find(trimmed)
+            if (match != null) {
+                return match.groupValues[1]
+            }
+        }
+        return trimmed.ifBlank { fallback }
+    }
+
     fun getGoogleCustomSearchApiKey(): String {
         val key = try {
             com.example.BuildConfig.GOOGLE_CUSTOM_SEARCH_API_KEY
         } catch (_: Throwable) {
             ""
         }
-        return if (key.isBlank() || key.contains("your_google_custom_search_api_key")) "" else key
+        return sanitizeApiKey(key)
     }
 
     fun getGoogleSearchEngineId(): String {
@@ -771,7 +799,7 @@ object GoogleSearchHelper {
         } catch (_: Throwable) {
             ""
         }
-        return if (configured.isNotBlank()) configured else DEFAULT_SEARCH_ENGINE_ID
+        return sanitizeCx(configured, DEFAULT_SEARCH_ENGINE_ID)
     }
 
     /**
@@ -786,12 +814,13 @@ object GoogleSearchHelper {
         num: Int = 10
     ): List<PhotoItem> = withContext(Dispatchers.IO) {
         val cleanQuery = query.trim().ifBlank { "tiktok creator" }
-        val effectiveKey = apiKey.trim()
-        val effectiveCx = cx.trim().ifBlank { DEFAULT_SEARCH_ENGINE_ID }
+        val effectiveKey = sanitizeApiKey(apiKey)
+        val effectiveCx = sanitizeCx(apiKey, cx.ifBlank { DEFAULT_SEARCH_ENGINE_ID })
 
         if (effectiveKey.isBlank()) {
             Log.w(TAG, "Google Custom Search API Key is not configured in secrets.")
-            return@withContext emptyList()
+            com.example.data.ScrollSearchStateBus.setCustomSearchError("Chave de API não informada", usingFallback = true)
+            return@withContext fetchCleanPhotos(cleanQuery)
         }
 
         val encodedQuery = URLEncoder.encode(cleanQuery, "UTF-8")
@@ -810,12 +839,30 @@ object GoogleSearchHelper {
             val bodyString = response.body?.string().orEmpty()
 
             if (!response.isSuccessful) {
-                Log.e(TAG, "Google Custom Search API request failed [${response.code}]: $bodyString")
-                return@withContext emptyList()
+                val errJson = try { JSONObject(bodyString).optJSONObject("error") } catch (_: Exception) { null }
+                val errMsg = errJson?.optString("message") ?: "Erro HTTP ${response.code}"
+                val status = errJson?.optString("status") ?: ""
+                Log.e(TAG, "Google Custom Search API request failed [${response.code}] $status: $errMsg")
+
+                val friendlyError = if (response.code == 403 || status == "PERMISSION_DENIED") {
+                    "A Custom Search JSON API precisa ser ativada no projeto do Google Cloud da sua chave. Ative em: console.cloud.google.com/apis/library/customsearch.googleapis.com"
+                } else if (response.code == 400) {
+                    "Verifique os parâmetros cx e key informados na Google Custom Search API."
+                } else {
+                    "Google API (${response.code}): $errMsg"
+                }
+
+                com.example.data.ScrollSearchStateBus.setCustomSearchError(friendlyError, usingFallback = true)
+                // Fallback to verified clean photography / Wikipedia so the user NEVER sees an empty broken screen!
+                return@withContext fetchCleanPhotos(cleanQuery)
             }
 
             val json = JSONObject(bodyString)
-            val items = json.optJSONArray("items") ?: return@withContext emptyList()
+            val items = json.optJSONArray("items")
+            if (items == null || items.length() == 0) {
+                com.example.data.ScrollSearchStateBus.setCustomSearchError("Nenhum resultado retornado para a busca.", usingFallback = true)
+                return@withContext fetchCleanPhotos(cleanQuery)
+            }
 
             for (i in 0 until items.length()) {
                 val item = items.optJSONObject(i) ?: continue
@@ -839,8 +886,17 @@ object GoogleSearchHelper {
                     )
                 }
             }
+
+            if (resultList.isNotEmpty()) {
+                com.example.data.ScrollSearchStateBus.setCustomSearchError(null, usingFallback = false)
+            } else {
+                com.example.data.ScrollSearchStateBus.setCustomSearchError("Nenhum link de foto válido retornado.", usingFallback = true)
+                return@withContext fetchCleanPhotos(cleanQuery)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Exception during Google Custom Search API execution: ${e.message}", e)
+            com.example.data.ScrollSearchStateBus.setCustomSearchError("Erro de conexão com API: ${e.message}", usingFallback = true)
+            return@withContext fetchCleanPhotos(cleanQuery)
         }
         resultList
     }
